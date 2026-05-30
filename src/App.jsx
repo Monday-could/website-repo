@@ -1171,7 +1171,7 @@ function HomePage({ menu, orders, onOrder }) {
   );
 
   return (
-    <>
+    <div className="home-reveal">
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
           <p className="eyebrow">Open table ordering</p>
@@ -1194,7 +1194,7 @@ function HomePage({ menu, orders, onOrder }) {
         </div>
       </section>
 
-      <section className="content-section" aria-labelledby="popular-title">
+      <section className="content-section home-reveal-content" aria-labelledby="popular-title">
         <div className="section-heading">
           <p className="eyebrow">Most popular</p>
           <h2 id="popular-title">Guest favorites</h2>
@@ -1203,7 +1203,7 @@ function HomePage({ menu, orders, onOrder }) {
         <HomePopularCarousel items={popularItems} onOrder={onOrder} orders={orders} menuForBadges={visibleMenu} />
         <OrderHistory orders={orders} />
       </section>
-    </>
+    </div>
   );
 }
 
