@@ -116,6 +116,7 @@ a {
   border-bottom: 1px solid rgba(17, 17, 17, 0.12);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(14px);
+  min-width: 0;
 }
 
 .brand,
@@ -132,7 +133,8 @@ a {
 .brand {
   gap: 10px;
   min-width: 0;
-  flex: 1 1 160px;
+  flex: 0 1 auto;
+  max-width: 100%;
   font-family: var(--font-display);
   font-size: clamp(17px, 3.4vw, 28px);
   font-weight: 900;
@@ -143,8 +145,9 @@ a {
 
 .brand > span:last-child {
   min-width: 0;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brand-mark {
@@ -158,7 +161,10 @@ a {
 }
 
 .desktop-nav {
-  gap: 26px;
+  gap: 14px 22px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
   font-weight: 800;
   color: var(--text-gray);
 }
@@ -176,6 +182,7 @@ a {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .lang-switch-wrap {
@@ -2578,6 +2585,55 @@ a.drawer-link.active {
     animation-iteration-count: 1 !important;
   }
 
+}
+
+/* 中等宽度：第一行 Logo + 右侧控件，第二行主导航独占一行，避免店名被挤成逐字断行 */
+@media (min-width: 921px) and (max-width: 1240px) {
+  :root {
+    --site-header-height: 120px;
+  }
+
+  .site-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    row-gap: 12px;
+    align-items: center;
+    min-height: unset;
+  }
+
+  .brand {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+  }
+
+  .header-actions {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .desktop-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    justify-content: flex-start;
+    padding-top: 10px;
+    border-top: 1px solid rgba(17, 17, 17, 0.1);
+  }
+}
+
+@media (min-width: 1241px) {
+  .site-header {
+    flex-wrap: nowrap;
+  }
+
+  .desktop-nav {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
 }
 
 @media (max-width: 920px) {
