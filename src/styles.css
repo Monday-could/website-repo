@@ -430,6 +430,128 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.menu-filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 20px;
+  max-width: 1180px;
+  margin: 0 auto 24px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--gray);
+}
+
+.menu-filters-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-filters-fields label {
+  display: grid;
+  gap: 6px;
+  min-width: min(220px, 100%);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.menu-filters-fields select {
+  min-width: 0;
+}
+
+.menu-filters-clear {
+  flex-shrink: 0;
+}
+
+.menu-filter-empty {
+  max-width: 1180px;
+  margin: 0 auto 28px;
+}
+
+.home-carousel {
+  max-width: 1180px;
+  margin: 0 auto 32px;
+}
+
+.home-carousel-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(580px, 100%);
+  margin: 0 auto;
+}
+
+.home-carousel-viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.home-carousel-track {
+  display: flex;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-carousel-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.home-carousel-arrow {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--black);
+  border-radius: 10px;
+  background: var(--white);
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.home-carousel-arrow:hover {
+  background: var(--cream);
+}
+
+.home-carousel-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.home-carousel-dot {
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--black);
+  background: var(--white);
+  cursor: pointer;
+}
+
+.home-carousel-dot.active {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.home-carousel-empty {
+  max-width: 1180px;
+  margin: 0 auto 28px;
+  text-align: center;
+}
+
 .food-card {
   display: flex;
   flex-direction: column;

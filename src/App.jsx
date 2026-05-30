@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Link,
   NavLink,
@@ -143,6 +143,82 @@ function loadState() {
 
 function formatPrice(value) {
   return `$${Number(value).toFixed(2)}`;
+}
+
+function uniqSortedCategoryBadgeValues(items, field) {
+  const s = new Set();
+  for (const item of items) {
+    const raw = item[field];
+    const t = typeof raw === "string" ? raw.trim() : "";
+    if (t) s.add(t);
+  }
+  return [...s].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+function filterMenuByCategoryAndBadge(items, category, badge) {
+  return items.filter((item) => {
+    if (category !== "all" && (item.category || "").trim() !== category) return false;
+    if (badge !== "all" && (item.badge || "").trim() !== badge) return false;
+    return true;
+  });
+}
+
+function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge }) {
+  const catSelectId = useId();
+  const badgeSelectId = useId();
+  const categoryOptions = useMemo(() => uniqSortedCategoryBadgeValues(menuItems, "category"), [menuItems]);
+  const badgeOptions = useMemo(() => uniqSortedCategoryBadgeValues(menuItems, "badge"), [menuItems]);
+
+  useEffect(() => {
+    if (category !== "all" && !categoryOptions.includes(category)) onCategory("all");
+  }, [category, categoryOptions, onCategory]);
+
+  useEffect(() => {
+    if (badge !== "all" && !badgeOptions.includes(badge)) onBadge("all");
+  }, [badge, badgeOptions, onBadge]);
+
+  const showClear = category !== "all" || badge !== "all";
+
+  return (
+    <div className="menu-filters-bar">
+      <div className="menu-filters-fields">
+        <label htmlFor={catSelectId}>
+          Category
+          <select id={catSelectId} value={category} onChange={(event) => onCategory(event.target.value)}>
+            <option value="all">All categories</option>
+            {categoryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor={badgeSelectId}>
+          Badge
+          <select id={badgeSelectId} value={badge} onChange={(event) => onBadge(event.target.value)}>
+            <option value="all">All badges</option>
+            {badgeOptions.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {showClear ? (
+        <button
+          type="button"
+          className="secondary-cta small menu-filters-clear"
+          onClick={() => {
+            onCategory("all");
+            onBadge("all");
+          }}
+        >
+          Clear filters
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 function StarRating({ value }) {
@@ -737,9 +813,68 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
   );
 }
 
+function HomePopularCarousel({ items, onOrder }) {
+  const [index, setIndex] = useState(0);
+  const count = items.length;
+
+  useEffect(() => {
+    setIndex((i) => (count ? Math.min(i, count - 1) : 0));
+  }, [count]);
+
+  function goPrev() {
+    setIndex((i) => (count ? (i - 1 + count) % count : 0));
+  }
+
+  function goNext() {
+    setIndex((i) => (count ? (i + 1) % count : 0));
+  }
+
+  if (!count) {
+    return <p className="empty-state home-carousel-empty">No dishes to show yet.</p>;
+  }
+
+  return (
+    <div className="home-carousel" aria-roledescription="carousel" aria-label="Popular dishes">
+      <div className="home-carousel-controls">
+        <button type="button" className="home-carousel-arrow" aria-label="Previous dish" onClick={goPrev}>
+          <span aria-hidden="true">‹</span>
+        </button>
+        <div className="home-carousel-viewport">
+          <div className="home-carousel-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+            {items.map((item) => (
+              <div key={item.id} className="home-carousel-slide">
+                <MenuCard item={item} onOrder={onOrder} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <button type="button" className="home-carousel-arrow" aria-label="Next dish" onClick={goNext}>
+          <span aria-hidden="true">›</span>
+        </button>
+      </div>
+      <div className="home-carousel-dots" role="tablist" aria-label="Slide indicators">
+        {items.map((_, i) => (
+          <button
+            key={items[i].id}
+            type="button"
+            role="tab"
+            aria-selected={i === index}
+            aria-label={`Show dish ${i + 1} of ${count}`}
+            className={`home-carousel-dot${i === index ? " active" : ""}`}
+            onClick={() => setIndex(i)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ menu, orders, onOrder }) {
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
-  const popularItems = [...visibleMenu].sort((a, b) => b.popularity - a.popularity).slice(0, 4);
+  const popularItems = useMemo(
+    () => [...visibleMenu].sort((a, b) => b.popularity - a.popularity).slice(0, 4),
+    [visibleMenu],
+  );
 
   return (
     <>
@@ -769,13 +904,9 @@ function HomePage({ menu, orders, onOrder }) {
         <div className="section-heading">
           <p className="eyebrow">Most popular</p>
           <h2 id="popular-title">Guest favorites</h2>
-          <p>Four high-demand dishes are ready on the first screen after the hero.</p>
+          <p>Swipe through top picks, then open the full menu for every category and badge filter.</p>
         </div>
-        <div className="menu-grid">
-          {popularItems.map((item) => (
-            <MenuCard key={item.id} item={item} onOrder={onOrder} />
-          ))}
-        </div>
+        <HomePopularCarousel items={popularItems} onOrder={onOrder} />
         <OrderHistory orders={orders} />
       </section>
     </>
@@ -783,7 +914,13 @@ function HomePage({ menu, orders, onOrder }) {
 }
 
 function MenuPage({ menu, orders, onOrder, onReview }) {
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterBadge, setFilterBadge] = useState("all");
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
+  const filteredMenu = useMemo(
+    () => filterMenuByCategoryAndBadge(visibleMenu, filterCategory, filterBadge),
+    [visibleMenu, filterCategory, filterBadge],
+  );
 
   return (
     <section className="content-section page-section" aria-labelledby="menu-title">
@@ -793,11 +930,23 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
         <p>Choose a dish, place an order, and leave a review for the kitchen.</p>
       </div>
 
-      <div className="menu-grid">
-        {visibleMenu.map((item) => (
-          <MenuCard key={item.id} item={item} onOrder={onOrder} onReview={onReview} />
-        ))}
-      </div>
+      <MenuFiltersBar
+        menuItems={visibleMenu}
+        category={filterCategory}
+        badge={filterBadge}
+        onCategory={setFilterCategory}
+        onBadge={setFilterBadge}
+      />
+
+      {filteredMenu.length ? (
+        <div className="menu-grid">
+          {filteredMenu.map((item) => (
+            <MenuCard key={item.id} item={item} onOrder={onOrder} onReview={onReview} />
+          ))}
+        </div>
+      ) : (
+        <p className="empty-state menu-filter-empty">No dishes match these filters. Clear filters or check back later.</p>
+      )}
 
       <OrderHistory orders={orders} />
     </section>
