@@ -1654,6 +1654,26 @@ textarea {
   margin: 0 auto;
 }
 
+.profile-order-history {
+  margin-top: 28px;
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.profile-order-history-heading {
+  font-size: clamp(22px, 3vw, 28px);
+  margin: 0;
+}
+
+.profile-order-ticket-list {
+  margin-top: 16px;
+}
+
+.profile-order-history-actions {
+  margin-top: 20px;
+}
+
 .profile-empty-panel {
   max-width: 1180px;
   margin: 20px auto 0;
@@ -1738,6 +1758,29 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+a.header-user-name.header-user-name--link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.header-user-name.header-user-name--link:hover {
+  color: var(--red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.drawer-user-name-link {
+  color: var(--red);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.drawer-user-name-link:hover {
+  color: var(--black);
 }
 
 .header-logout-button {

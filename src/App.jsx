@@ -297,14 +297,33 @@ const initialState = {
   cart: [],
 };
 
+/** 游客下单或未迁移的旧订单使用此 id；已登录用户使用 session.id */
+const GUEST_PLACED_BY_ID = "guest";
+
+function migrateOrderRow(order) {
+  if (!order || typeof order !== "object") return order;
+  if (order.placedById != null && order.placedById !== "") return order;
+  return { ...order, placedById: GUEST_PLACED_BY_ID };
+}
+
+/** 当前浏览者可见的「我的订单」子集；员工厨房等场景请使用完整 orders */
+function filterOrdersForAccount(session, orders) {
+  if (!Array.isArray(orders)) return [];
+  if (!session) {
+    return orders.filter((o) => !o.placedById || o.placedById === GUEST_PLACED_BY_ID);
+  }
+  return orders.filter((o) => o.placedById === session.id);
+}
+
 function loadState() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) return initialState;
     const parsed = JSON.parse(saved);
+    const rawOrders = Array.isArray(parsed.orders) ? parsed.orders : [];
     return {
       menu: (Array.isArray(parsed.menu) ? parsed.menu : initialState.menu).map(normalizeMenuItemFromPersisted),
-      orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+      orders: rawOrders.map(migrateOrderRow),
       cart: Array.isArray(parsed.cart) ? parsed.cart : [],
     };
   } catch {
@@ -728,10 +747,25 @@ function App() {
   }, [state]);
 
   useEffect(() => {
-    if (location.pathname.startsWith("/owner")) {
-      setMode("owner");
+    const path = location.pathname;
+    if (authSession?.role === "owner") {
+      if (path.startsWith("/owner")) {
+        setMode("owner");
+        return;
+      }
+      // 已是老板账号但 mode 仍停留在 staff（例如从员工切去登录再登老板）时，纠正高亮
+      setMode((m) => (m === "staff" ? "owner" : m));
+      return;
     }
-  }, [location.pathname]);
+    if (authSession?.role === "staff") {
+      if (path === "/orders" || path.startsWith("/orders/")) {
+        setMode("staff");
+        return;
+      }
+      // 已是员工但 mode 误为 owner 时纠正（对称处理）
+      setMode((m) => (m === "owner" ? "staff" : m));
+    }
+  }, [location.pathname, authSession]);
 
   useEffect(() => {
     if (!pendingOrderItem) return;
@@ -804,17 +838,20 @@ function App() {
     setState((current) => {
       if (!current.cart.length) return current;
       const ts = Date.now();
+      const placedById = authSession?.id ? authSession.id : GUEST_PLACED_BY_ID;
+      const customerLabel = authSession?.username?.trim() || "Walk-in Guest";
       const newOrders = current.cart.map((line, i) => ({
         id: `order-${ts}-${i}`,
         itemId: line.itemId,
         itemName: line.itemName,
         price: line.price,
         quantity: line.quantity,
-        customerName: "Walk-in Guest",
+        customerName: customerLabel.trim() || "Walk-in Guest",
         notes: line.notes,
         status: "new",
         ready: false,
         createdAt: new Date().toISOString(),
+        placedById,
       }));
       return {
         ...current,
@@ -932,15 +969,19 @@ function App() {
   }
 
   function selectMode(item) {
+    if (authSession && item.id !== mode) {
+      logout();
+      setAuthSession(null);
+    }
+
     if (item.id === "customer") {
-      exitStaffOrOwnerForGuestBrowse();
       setMode("customer");
       navigate(item.path);
       return;
     }
     if (item.id === "staff") {
-      if (authSession?.role === "staff") {
-        setMode("staff");
+      setMode("staff");
+      if (getPersistedSession()?.role === "staff") {
         navigate("/orders");
         return;
       }
@@ -948,8 +989,8 @@ function App() {
       return;
     }
     if (item.id === "owner") {
-      if (authSession?.role === "owner") {
-        setMode("owner");
+      setMode("owner");
+      if (getPersistedSession()?.role === "owner") {
         navigate("/owner");
         return;
       }
@@ -975,7 +1016,27 @@ function App() {
             </>
           ) : (
             <span className="header-user-inline">
-              <span className="header-user-name">{authSession.username}</span>
+              {authSession.role === "staff" ? (
+                <Link
+                  className="header-user-name header-user-name--link"
+                  to="/orders"
+                  aria-label={t("header.goStaffOrdersAria")}
+                  onClick={() => setMode("staff")}
+                >
+                  {authSession.username}
+                </Link>
+              ) : authSession.role === "owner" ? (
+                <Link
+                  className="header-user-name header-user-name--link"
+                  to="/owner"
+                  aria-label={t("header.goOwnerConsoleAria")}
+                  onClick={() => setMode("owner")}
+                >
+                  {authSession.username}
+                </Link>
+              ) : (
+                <span className="header-user-name">{authSession.username}</span>
+              )}
               <button type="button" className="header-logout-button" onClick={handleLogout}>
                 {t("header.logout")}
               </button>
@@ -1089,7 +1150,33 @@ function App() {
               <>
                 <p className="drawer-user-line">
                   {t("drawer.signedInPrefix")}
-                  <strong>{authSession.username}</strong>
+                  {authSession.role === "staff" ? (
+                    <Link
+                      className="drawer-user-name-link"
+                      to="/orders"
+                      aria-label={t("header.goStaffOrdersAria")}
+                      onClick={() => {
+                        setMode("staff");
+                        setDrawerOpen(false);
+                      }}
+                    >
+                      <strong>{authSession.username}</strong>
+                    </Link>
+                  ) : authSession.role === "owner" ? (
+                    <Link
+                      className="drawer-user-name-link"
+                      to="/owner"
+                      aria-label={t("header.goOwnerConsoleAria")}
+                      onClick={() => {
+                        setMode("owner");
+                        setDrawerOpen(false);
+                      }}
+                    >
+                      <strong>{authSession.username}</strong>
+                    </Link>
+                  ) : (
+                    <strong>{authSession.username}</strong>
+                  )}
                 </p>
                 <button
                   className="drawer-link"
@@ -1134,11 +1221,22 @@ function App() {
 
       <main id="main-content" tabIndex={-1}>
         <Routes>
-          <Route path="/" element={<HomePage menu={state.menu} orders={state.orders} onOrder={openOrderNoteModal} />} />
+          <Route
+            path="/"
+            element={
+              <HomePage menu={state.menu} orders={state.orders} session={authSession} onOrder={openOrderNoteModal} />
+            }
+          />
           <Route
             path="/menu"
             element={
-              <MenuPage menu={state.menu} orders={state.orders} onOrder={openOrderNoteModal} onReview={addReview} />
+              <MenuPage
+                menu={state.menu}
+                orders={state.orders}
+                session={authSession}
+                onOrder={openOrderNoteModal}
+                onReview={addReview}
+              />
             }
           />
           <Route
@@ -1179,7 +1277,9 @@ function App() {
           />
           <Route
             path="/profile"
-            element={<ProfilePage orders={state.orders} session={authSession} onLogout={handleLogout} />}
+            element={
+              <ProfilePage orders={filterOrdersForAccount(authSession, state.orders)} session={authSession} />
+            }
           />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} pushToast={pushToast} />} />
           <Route path="/register" element={<RegisterPage onLoginSuccess={handleLoginSuccess} pushToast={pushToast} />} />
@@ -1454,7 +1554,7 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
   );
 }
 
-function HomePage({ menu, orders, onOrder }) {
+function HomePage({ menu, orders, session, onOrder }) {
   const { t } = useI18n();
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
   const popularItems = useMemo(
@@ -1491,13 +1591,13 @@ function HomePage({ menu, orders, onOrder }) {
           <p>{t("home.popularBody")}</p>
         </div>
         <HomePopularCarousel items={popularItems} onOrder={onOrder} orders={orders} menuForBadges={visibleMenu} />
-        <OrderHistory orders={orders} />
+        <OrderHistory orders={filterOrdersForAccount(session, orders)} />
       </section>
     </div>
   );
 }
 
-function MenuPage({ menu, orders, onOrder, onReview }) {
+function MenuPage({ menu, orders, session, onOrder, onReview }) {
   const { t } = useI18n();
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all");
@@ -1539,7 +1639,7 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
         </div>
       )}
 
-      <OrderHistory orders={orders} />
+      <OrderHistory orders={filterOrdersForAccount(session, orders)} />
     </section>
   );
 }
@@ -1701,9 +1801,9 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
   );
 }
 
-function OrderHistory({ orders }) {
+function OrderHistory({ orders, fullList = false }) {
   const { t } = useI18n();
-  const recentOrders = orders.slice(0, 4);
+  const recentOrders = fullList ? orders : orders.slice(0, 4);
 
   return (
     <div className="order-history">
@@ -1746,7 +1846,7 @@ function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
         <h2 id="orders-title">{t("ordersPage.title")}</h2>
         <p>{t("ordersPage.body")}</p>
       </div>
-      <OrderHistory orders={orders} />
+      <OrderHistory orders={filterOrdersForAccount(session, orders)} fullList />
     </section>
   );
 }
@@ -2636,7 +2736,7 @@ function LocationPage() {
   );
 }
 
-function ProfilePage({ orders, session, onLogout }) {
+function ProfilePage({ orders, session }) {
   const { t } = useI18n();
   const roleKey =
     session?.role === "staff"
@@ -2647,6 +2747,7 @@ function ProfilePage({ orders, session, onLogout }) {
           ? "profile.roleCustomer"
           : null;
   const roleLabel = roleKey ? t(roleKey) : "";
+  const latestOrders = orders.slice(0, 3);
 
   return (
     <section className="content-section page-section" aria-labelledby="profile-title">
@@ -2659,13 +2760,7 @@ function ProfilePage({ orders, session, onLogout }) {
           {session ? t("profile.bodyStaff", { role: roleLabel }) : t("profile.bodyGuest")}
         </p>
       </div>
-      {session ? (
-        <div className="profile-auth-actions">
-          <button type="button" className="secondary-cta" onClick={onLogout}>
-            {t("profile.logout")}
-          </button>
-        </div>
-      ) : (
+      {!session ? (
         <div className="profile-auth-actions">
           <Link className="primary-cta" to="/login">
             {t("profile.login")}
@@ -2674,22 +2769,38 @@ function ProfilePage({ orders, session, onLogout }) {
             {t("profile.register")}
           </Link>
         </div>
-      )}
-      <div className="profile-summary">
-        <strong>{orders.length}</strong>
-        <span>{t("profile.orderCountLabel")}</span>
-      </div>
-      {orders.length === 0 ? (
-        <div className="empty-state empty-state--soft profile-empty-panel">
-          <p className="empty-state-title">{t("profile.emptyTitle")}</p>
-          <p className="empty-state-hint">{t("profile.emptyHint")}</p>
-          <Link className="primary-cta" to="/menu">
-            {t("profile.goMenu")}
-          </Link>
+      ) : null}
+
+      <div className="profile-order-history" aria-labelledby="profile-order-history-title">
+        <div className="section-heading compact">
+          <p className="eyebrow">{t("profile.orderHistoryEyebrow")}</p>
+          <h2 id="profile-order-history-title" className="profile-order-history-heading">
+            {t("profile.orderHistoryTitle")}
+          </h2>
         </div>
-      ) : (
-        <p className="profile-footnote">{t("profile.footnote")}</p>
-      )}
+        {orders.length === 0 ? (
+          <div className="empty-state empty-state--soft profile-empty-panel">
+            <p className="empty-state-title">{t("profile.emptyTitle")}</p>
+            <p className="empty-state-hint">{t("profile.emptyHint")}</p>
+            <Link className="primary-cta" to="/menu">
+              {t("profile.goMenu")}
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="ticket-list profile-order-ticket-list">
+              {latestOrders.map((order) => (
+                <OrderTicket key={order.id} order={order} />
+              ))}
+            </div>
+            <div className="profile-order-history-actions">
+              <Link className="secondary-cta" to="/orders">
+                {t("profile.viewAllOrders")}
+              </Link>
+            </div>
+          </>
+        )}
+      </div>
     </section>
   );
 }

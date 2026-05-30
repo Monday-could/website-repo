@@ -27,6 +27,16 @@ const STR = {
   "header.modeMenuAria": { en: "Mode selection", zh: "模式选择", es: "Selección de modo" },
   "header.openMobileMenu": { en: "Open menu", zh: "打开菜单", es: "Abrir menú" },
   "header.closeMobileMenu": { en: "Close menu", zh: "关闭菜单", es: "Cerrar menú" },
+  "header.goStaffOrdersAria": {
+    en: "Go to staff order desk",
+    zh: "前往员工处理订单",
+    es: "Ir al mostrador de pedidos del personal",
+  },
+  "header.goOwnerConsoleAria": {
+    en: "Go to owner console",
+    zh: "前往老板后台",
+    es: "Ir a la consola del dueño",
+  },
 
   "drawer.mobileNavAria": { en: "Mobile navigation", zh: "移动导航", es: "Navegación móvil" },
   "drawer.menu": { en: "Menu", zh: "菜单", es: "Menú" },
@@ -396,11 +406,9 @@ const STR = {
   "profile.logout": { en: "Log out", zh: "退出登录", es: "Cerrar sesión" },
   "profile.login": { en: "Log in", zh: "登录", es: "Entrar" },
   "profile.register": { en: "Register a customer account", zh: "注册顾客账号", es: "Registrar cuenta de cliente" },
-  "profile.orderCountLabel": {
-    en: "Total demo orders saved in this browser",
-    zh: "本浏览器保存的演示订单总数",
-    es: "Pedidos demo guardados en este navegador",
-  },
+  "profile.orderHistoryEyebrow": { en: "Your orders", zh: "你的订单", es: "Tus pedidos" },
+  "profile.orderHistoryTitle": { en: "Order history", zh: "点菜历史", es: "Historial de pedidos" },
+  "profile.viewAllOrders": { en: "View all", zh: "查看全部", es: "Ver todo" },
   "profile.emptyTitle": { en: "No orders in this browser yet", zh: "本浏览器尚无订单", es: "Aún no hay pedidos aquí" },
   "profile.emptyHint": {
     en: "Place an order from the menu and check out — your demo history will show here.",
@@ -408,11 +416,6 @@ const STR = {
     es: "Pide desde el menú y paga — tu historial demo aparecerá aquí.",
   },
   "profile.goMenu": { en: "Go to menu", zh: "前往菜单", es: "Ir al menú" },
-  "profile.footnote": {
-    en: "Demo data stays in localStorage on this device until you clear site data.",
-    zh: "演示数据保存在本机 localStorage，清除站点数据前会一直保留。",
-    es: "Los datos demo permanecen en localStorage hasta que borres los datos del sitio.",
-  },
 
   "auth.login.title": { en: "Log in", zh: "登录", es: "Iniciar sesión" },
   "auth.login.eyebrow": { en: "Account", zh: "账号", es: "Cuenta" },
