@@ -23,6 +23,8 @@
   --color-info-text: #1e3a5f;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --transition-fast: 0.18s var(--ease-out);
+  --bg-diner-hero: url("/assets/diner-hero-bg.png");
+  --bg-diner-page: url("/assets/diner-page-bg.png");
 }
 
 * {
@@ -36,7 +38,9 @@ html {
 body {
   margin: 0;
   color: var(--black);
-  background: var(--white);
+  background:
+    linear-gradient(rgba(255, 249, 239, 0.9), rgba(255, 249, 239, 0.9)),
+    var(--bg-diner-page) center top / cover fixed;
   font-family: var(--font-body);
 }
 
@@ -332,7 +336,8 @@ a {
   min-height: calc(100vh - 120px);
   padding: 54px 32px 42px;
   background:
-    linear-gradient(90deg, rgba(17, 17, 17, 0.82), rgba(17, 17, 17, 0.48)),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.88), rgba(17, 17, 17, 0.56)),
+    var(--bg-diner-hero) center / cover no-repeat,
     var(--black);
   color: var(--white);
 }
@@ -426,7 +431,9 @@ h3 {
 
 .content-section {
   padding: 72px 32px;
-  background: var(--white);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.86), rgba(255, 248, 236, 0.88)),
+    var(--bg-diner-page) center / cover fixed;
 }
 
 .page-section {
@@ -2321,6 +2328,11 @@ a.drawer-link.active {
 
   .mobile-menu {
     display: inline-grid;
+  }
+
+  body,
+  .content-section {
+    background-attachment: scroll;
   }
 
   .hero {
