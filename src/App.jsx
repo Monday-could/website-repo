@@ -10,7 +10,16 @@ import {
   useNavigate,
   useOutletContext,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
+
+import {
+  getPersistedSession,
+  initialModeFromSession,
+  login as authLogin,
+  logout,
+  registerCustomer,
+} from "./services/authService.js";
 
 const STORAGE_KEY = "diner-desk-state-v2";
 
@@ -486,10 +495,180 @@ function Icon({ name }) {
   );
 }
 
+function RequireRole({ session, role, children }) {
+  if (!session || session.role !== role) {
+    return <Navigate to={`/login?role=${role}`} replace />;
+  }
+  return children;
+}
+
+function LoginPage({ onLoginSuccess, pushToast }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const roleHint = searchParams.get("role") || "customer";
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const hintText =
+    roleHint === "staff"
+      ? "员工模式：请使用预留账号 worker / imworker 登录。"
+      : roleHint === "owner"
+        ? "老板模式：请使用预留账号 boss / imboss 登录。"
+        : "顾客可使用注册账号登录；不登录也可直接浏览菜单与购物车（游客）。";
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const session = await authLogin({ username, password });
+      onLoginSuccess(session);
+      pushToast(`欢迎，${session.username}。`);
+      if (session.role === "staff") navigate("/orders", { replace: true });
+      else if (session.role === "owner") navigate("/owner", { replace: true });
+      else navigate("/menu", { replace: true });
+    } catch (err) {
+      setError(err?.message || "登录失败。");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="content-section page-section auth-page" aria-labelledby="login-title">
+      <div className="section-heading">
+        <p className="eyebrow">Account</p>
+        <h2 id="login-title">登录</h2>
+        <p className="auth-hint">{hintText}</p>
+      </div>
+      <form className="auth-form" onSubmit={handleSubmit}>
+        {error ? (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <label className="auth-label">
+          用户名
+          <input
+            className="auth-input"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            autoComplete="username"
+          />
+        </label>
+        <label className="auth-label">
+          密码
+          <input
+            className="auth-input"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+          />
+        </label>
+        <button className="primary-cta" type="submit" disabled={loading}>
+          {loading ? "请稍候…" : "登录"}
+        </button>
+      </form>
+      <p className="auth-secondary-actions">
+        <Link to="/register">还没有账号？去注册</Link>
+        {" · "}
+        <Link to="/menu">以游客继续浏览</Link>
+      </p>
+    </section>
+  );
+}
+
+function RegisterPage({ onLoginSuccess, pushToast }) {
+  const navigate = useNavigate();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError("");
+    if (password !== confirm) {
+      setError("两次输入的密码不一致。");
+      return;
+    }
+    setLoading(true);
+    try {
+      const session = await registerCustomer({ username, password });
+      onLoginSuccess(session);
+      pushToast("注册成功，已自动登录。");
+      navigate("/menu", { replace: true });
+    } catch (err) {
+      setError(err?.message || "注册失败。");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="content-section page-section auth-page" aria-labelledby="register-title">
+      <div className="section-heading">
+        <p className="eyebrow">Account</p>
+        <h2 id="register-title">顾客注册</h2>
+        <p className="auth-hint">仅创建顾客账号。接入数据库前，账号信息保存在本机浏览器中。</p>
+      </div>
+      <form className="auth-form" onSubmit={handleSubmit}>
+        {error ? (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <label className="auth-label">
+          用户名
+          <input
+            className="auth-input"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            autoComplete="username"
+          />
+        </label>
+        <label className="auth-label">
+          密码
+          <input
+            className="auth-input"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="new-password"
+          />
+        </label>
+        <label className="auth-label">
+          确认密码
+          <input
+            className="auth-input"
+            type="password"
+            value={confirm}
+            onChange={(event) => setConfirm(event.target.value)}
+            autoComplete="new-password"
+          />
+        </label>
+        <button className="primary-cta" type="submit" disabled={loading}>
+          {loading ? "请稍候…" : "注册并登录"}
+        </button>
+      </form>
+      <p className="auth-secondary-actions">
+        <Link to="/login">已有账号？去登录</Link>
+        {" · "}
+        <Link to="/menu">以游客继续浏览</Link>
+      </p>
+    </section>
+  );
+}
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [mode, setMode] = useState("customer");
+  const [mode, setMode] = useState(initialModeFromSession);
+  const [authSession, setAuthSession] = useState(() => getPersistedSession());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [state, setState] = useState(loadState);
   const [pendingOrderItem, setPendingOrderItem] = useState(null);
@@ -507,6 +686,29 @@ function App() {
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  const handleLoginSuccess = useCallback((session) => {
+    setAuthSession(session);
+    if (session.role === "staff") setMode("staff");
+    else if (session.role === "owner") setMode("owner");
+    else setMode("customer");
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    setAuthSession(null);
+    setMode("customer");
+    pushToast("已退出登录。");
+    navigate("/menu");
+  }, [navigate, pushToast]);
+
+  const exitStaffOrOwnerForGuestBrowse = useCallback(() => {
+    if (authSession?.role === "staff" || authSession?.role === "owner") {
+      logout();
+      setAuthSession(null);
+      pushToast("已退出职级账号，以访客身份浏览顾客模式。");
+    }
+  }, [authSession, pushToast]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -717,8 +919,29 @@ function App() {
   }
 
   function selectMode(item) {
-    setMode(item.id);
-    navigate(item.path);
+    if (item.id === "customer") {
+      exitStaffOrOwnerForGuestBrowse();
+      setMode("customer");
+      navigate(item.path);
+      return;
+    }
+    if (item.id === "staff") {
+      if (authSession?.role === "staff") {
+        setMode("staff");
+        navigate("/orders");
+        return;
+      }
+      navigate("/login?role=staff");
+      return;
+    }
+    if (item.id === "owner") {
+      if (authSession?.role === "owner") {
+        setMode("owner");
+        navigate("/owner");
+        return;
+      }
+      navigate("/login?role=owner");
+    }
   }
 
   return (
@@ -732,6 +955,19 @@ function App() {
         <nav className="desktop-nav" aria-label="Primary navigation">
           <NavLink to="/menu">Menu</NavLink>
           <NavLink to="/location">Location</NavLink>
+          {!authSession ? (
+            <>
+              <NavLink to="/login">登录</NavLink>
+              <NavLink to="/register">注册</NavLink>
+            </>
+          ) : (
+            <span className="header-user-inline">
+              <span className="header-user-name">{authSession.username}</span>
+              <button type="button" className="header-logout-button" onClick={handleLogout}>
+                退出
+              </button>
+            </span>
+          )}
           {mode === "owner" ? (
             <>
               <NavLink to="/owner/add" end>
@@ -764,6 +1000,7 @@ function App() {
             className="order-button"
             type="button"
             onClick={() => {
+              exitStaffOrOwnerForGuestBrowse();
               setMode("customer");
               navigate("/menu");
             }}
@@ -822,6 +1059,32 @@ function App() {
             <MobileLink to="/location" onDone={() => setDrawerOpen(false)}>
               Location
             </MobileLink>
+            {!authSession ? (
+              <>
+                <MobileLink to="/login" onDone={() => setDrawerOpen(false)}>
+                  登录
+                </MobileLink>
+                <MobileLink to="/register" onDone={() => setDrawerOpen(false)}>
+                  注册
+                </MobileLink>
+              </>
+            ) : (
+              <>
+                <p className="drawer-user-line">
+                  已登录：<strong>{authSession.username}</strong>
+                </p>
+                <button
+                  className="drawer-link"
+                  type="button"
+                  onClick={() => {
+                    handleLogout();
+                    setDrawerOpen(false);
+                  }}
+                >
+                  退出登录
+                </button>
+              </>
+            )}
             {mode === "owner" ? (
               <>
                 <MobileLink to="/owner/add" onDone={() => setDrawerOpen(false)}>
@@ -865,6 +1128,7 @@ function App() {
             element={
               <OrdersPage
                 mode={mode}
+                session={authSession}
                 orders={state.orders}
                 onStatusChange={(orderId, status) => {
                   updateOrderStatus(orderId, status);
@@ -895,19 +1159,26 @@ function App() {
               />
             }
           />
-          <Route path="/profile" element={<ProfilePage orders={state.orders} />} />
+          <Route
+            path="/profile"
+            element={<ProfilePage orders={state.orders} session={authSession} onLogout={handleLogout} />}
+          />
+          <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} pushToast={pushToast} />} />
+          <Route path="/register" element={<RegisterPage onLoginSuccess={handleLoginSuccess} pushToast={pushToast} />} />
           <Route
             path="/owner"
             element={
-              <OwnerShell
-                menu={state.menu}
-                orders={state.orders}
-                onAddMenuItem={addMenuItem}
-                onAddMenuItemsBatch={addMenuItemsBatch}
-                onUpdateMenuItem={updateMenuItem}
-                onDeleteMenuItem={deleteMenuItem}
-                onToggleMenuItemAvailable={toggleMenuItemAvailable}
-              />
+              <RequireRole session={authSession} role="owner">
+                <OwnerShell
+                  menu={state.menu}
+                  orders={state.orders}
+                  onAddMenuItem={addMenuItem}
+                  onAddMenuItemsBatch={addMenuItemsBatch}
+                  onUpdateMenuItem={updateMenuItem}
+                  onDeleteMenuItem={deleteMenuItem}
+                  onToggleMenuItemAvailable={toggleMenuItemAvailable}
+                />
+              </RequireRole>
             }
           >
             <Route index element={<Navigate to="add" replace />} />
@@ -1435,9 +1706,12 @@ function OrderHistory({ orders }) {
   );
 }
 
-function OrdersPage({ mode, orders, onStatusChange, onReady }) {
-  if (mode === "staff") {
+function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
+  if (session?.role === "staff") {
     return <StaffMode orders={orders} onStatusChange={onStatusChange} onReady={onReady} />;
+  }
+  if (mode === "staff") {
+    return <Navigate to="/login?role=staff" replace />;
   }
 
   return (
@@ -2334,14 +2608,37 @@ function LocationPage() {
   );
 }
 
-function ProfilePage({ orders }) {
+function ProfilePage({ orders, session, onLogout }) {
+  const roleLabel =
+    session?.role === "staff" ? "员工" : session?.role === "owner" ? "老板" : session?.role === "customer" ? "顾客" : null;
+
   return (
     <section className="content-section page-section" aria-labelledby="profile-title">
       <div className="section-heading">
         <p className="eyebrow">Profile</p>
-        <h2 id="profile-title">Guest account</h2>
-        <p>This placeholder is ready for login and synced order history after you add authentication.</p>
+        <h2 id="profile-title">{session ? `已登录：${session.username}` : "游客浏览"}</h2>
+        <p>
+          {session
+            ? `当前身份为${roleLabel}。顾客可不登录使用菜单与购物车；员工与老板入口需登录对应账号。`
+            : "未登录时仍可浏览菜单、加购与结账（演示数据保存在本机）。登录后可从顶栏「Mode」进入员工或老板模式（需相应账号）。"}
+        </p>
       </div>
+      {session ? (
+        <div className="profile-auth-actions">
+          <button type="button" className="secondary-cta" onClick={onLogout}>
+            退出登录
+          </button>
+        </div>
+      ) : (
+        <div className="profile-auth-actions">
+          <Link className="primary-cta" to="/login">
+            登录
+          </Link>
+          <Link className="secondary-cta" to="/register">
+            注册顾客账号
+          </Link>
+        </div>
+      )}
       <div className="profile-summary">
         <strong>{orders.length}</strong>
         <span>Total demo orders saved in this browser</span>
