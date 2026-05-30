@@ -45,6 +45,8 @@ const MAX_OWNER_IMAGE_BYTES = 2 * 1024 * 1024;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MENU_NEW_MAX_AGE_MS = 14 * MS_PER_DAY;
 const POPULAR_SALES_TOP_N = 5;
+/** How many newest reviews to show on each menu card before opening the full list modal. */
+const MENU_CARD_REVIEW_PREVIEW_COUNT = 3;
 
 const AUTO_BADGE_SEASONAL_NEW = "Seasonal/New";
 
@@ -390,6 +392,62 @@ function StarRating({ value }) {
       {"\u2605".repeat(value)}
       <span>{"\u2606".repeat(5 - value)}</span>
     </span>
+  );
+}
+
+function DishReviewsModal({ open, onClose, item }) {
+  const titleId = item ? `dish-reviews-modal-title-${item.id}` : "dish-reviews-modal-title";
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  if (!open || !item || !item.reviews?.length) return null;
+
+  return (
+    <div className="order-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="order-modal dish-reviews-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="order-modal-header">
+          <h2 id={titleId}>All reviews</h2>
+          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+            <Icon name="x" />
+          </button>
+        </div>
+        <p className="order-modal-dish">{item.name}</p>
+        <p className="dish-reviews-modal-count">{item.reviews.length} total</p>
+        <ul className="dish-reviews-modal-list">
+          {item.reviews.map((review, index) => {
+            const rid = review.id ?? `${item.id}-review-${index}`;
+            const stars = Math.min(5, Math.max(0, Math.round(Number(review.rating) || 0)));
+            return (
+              <li key={rid} className="menu-card-review-item">
+                <div className="menu-card-review-meta">
+                  <strong>{review.author || "Guest"}</strong>
+                  {stars > 0 ? <StarRating value={stars} /> : null}
+                </div>
+                <p>{review.text}</p>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="order-modal-actions">
+          <button type="button" className="primary-cta" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1137,6 +1195,7 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
 
 function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) {
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [author, setAuthor] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
@@ -1146,6 +1205,11 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
     [orders, menuForBadges, item],
   );
   const badges = useMemo(() => getAllBadgesForItem(item, badgeCtx), [item, badgeCtx]);
+
+  const previewReviews = useMemo(() => {
+    const list = Array.isArray(item.reviews) ? item.reviews : [];
+    return list.slice(0, MENU_CARD_REVIEW_PREVIEW_COUNT);
+  }, [item.reviews]);
 
   const averageRating = useMemo(() => {
     if (!item.reviews.length) return 0;
@@ -1237,17 +1301,48 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
             </button>
           </form>
         )}
-        <div className="latest-review">
-          {item.reviews[0] ? (
-            <>
-              <strong>{item.reviews[0].author}</strong>
-              <p>{item.reviews[0].text}</p>
-            </>
+        <section className="menu-card-reviews" aria-labelledby={`reviews-heading-${item.id}`}>
+          <h4 className="menu-card-reviews-heading" id={`reviews-heading-${item.id}`}>
+            Recent reviews
+          </h4>
+          {item.reviews.length === 0 ? (
+            <p className="menu-card-reviews-empty">Be the first to review this dish.</p>
           ) : (
-            <p>Be the first to review this dish.</p>
+            <>
+              {item.reviews.length > MENU_CARD_REVIEW_PREVIEW_COUNT ? (
+                <p className="menu-card-reviews-note">
+                  Showing the latest {MENU_CARD_REVIEW_PREVIEW_COUNT} of {item.reviews.length}.
+                </p>
+              ) : null}
+              <ul className="menu-card-reviews-list">
+                {previewReviews.map((review, index) => {
+                  const rid = review.id ?? `${item.id}-review-${index}`;
+                  const stars = Math.min(5, Math.max(0, Math.round(Number(review.rating) || 0)));
+                  return (
+                    <li key={rid} className="menu-card-review-item">
+                      <div className="menu-card-review-meta">
+                        <strong>{review.author || "Guest"}</strong>
+                        {stars > 0 ? <StarRating value={stars} /> : null}
+                      </div>
+                      <p>{review.text}</p>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button
+                type="button"
+                className="secondary-cta small menu-card-reviews-modal-btn"
+                onClick={() => setReviewsModalOpen(true)}
+              >
+                {item.reviews.length > MENU_CARD_REVIEW_PREVIEW_COUNT
+                  ? `View all ${item.reviews.length} reviews`
+                  : "View all reviews"}
+              </button>
+            </>
           )}
-        </div>
+        </section>
       </div>
+      <DishReviewsModal open={reviewsModalOpen} onClose={() => setReviewsModalOpen(false)} item={item} />
     </article>
   );
 }

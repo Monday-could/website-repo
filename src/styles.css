@@ -665,6 +665,15 @@ h3 {
   flex-direction: column;
   gap: 14px;
   padding: 20px;
+  min-height: 0;
+}
+
+/* Eat leftover card height at the bottom so content stays stacked under the title (no gap between stars and actions). */
+.food-card-body::after {
+  content: "";
+  flex-grow: 1;
+  flex-shrink: 0;
+  min-height: 0;
 }
 
 .food-title-row {
@@ -679,7 +688,7 @@ h3 {
 
 .food-card-body p,
 .ticket p,
-.latest-review p,
+.menu-card-reviews p,
 .menu-row p,
 .site-footer p {
   color: var(--text-gray);
@@ -706,7 +715,6 @@ h3 {
 .card-actions {
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: auto;
 }
 
 .review-form,
@@ -1212,9 +1220,70 @@ textarea {
   gap: 6px;
 }
 
-.latest-review {
+.menu-card-reviews {
   padding-top: 12px;
   border-top: 1px solid var(--border);
+}
+
+.menu-card-reviews-heading {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--black);
+}
+
+.menu-card-reviews-empty {
+  margin: 0;
+}
+
+.menu-card-reviews-note {
+  margin: -4px 0 10px;
+  font-size: 13px;
+  color: var(--text-gray);
+  line-height: 1.4;
+}
+
+.menu-card-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menu-card-reviews-modal-btn {
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.menu-card-review-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--gray);
+}
+
+.menu-card-review-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.menu-card-review-meta strong {
+  font-size: 14px;
+}
+
+.menu-card-review-item > p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .order-history {
@@ -1563,6 +1632,37 @@ a.drawer-link.active {
   border: 1px solid var(--border);
   background: var(--white);
   box-shadow: 0 18px 48px rgba(17, 17, 17, 0.18);
+}
+
+.order-modal.dish-reviews-modal {
+  width: min(520px, 100%);
+  max-height: min(90vh, 640px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dish-reviews-modal-count {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-gray);
+}
+
+.dish-reviews-modal-list {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0 6px 0 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.dish-reviews-modal .order-modal-actions {
+  margin-top: 16px;
+  flex-shrink: 0;
 }
 
 .order-modal-header {
