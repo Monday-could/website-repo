@@ -304,6 +304,26 @@ function App() {
     }));
   }
 
+  function addMenuItemsBatch(items) {
+    if (!items.length) return;
+    const ts = Date.now();
+    setState((current) => {
+      const newRows = items.map((item, i) => ({
+        name: item.name,
+        price: item.price,
+        category: item.category,
+        badge: item.badge,
+        description: item.description,
+        image: item.image || "/assets/diner-burger.png",
+        id: `dish-${ts}-${i}`,
+        popularity: 70,
+        available: true,
+        reviews: [],
+      }));
+      return { ...current, menu: [...newRows.reverse(), ...current.menu] };
+    });
+  }
+
   function updateMenuItem(itemId, patch) {
     setState((current) => ({
       ...current,
@@ -345,6 +365,14 @@ function App() {
         <nav className="desktop-nav" aria-label="Primary navigation">
           <NavLink to="/menu">Menu</NavLink>
           <NavLink to="/location">Location</NavLink>
+          {mode === "owner" ? (
+            <>
+              <NavLink to="/owner/add" end>
+                Add dish
+              </NavLink>
+              <NavLink to="/owner/edit">Edit menu</NavLink>
+            </>
+          ) : null}
         </nav>
 
         <div className="header-actions">
@@ -427,6 +455,16 @@ function App() {
             <MobileLink to="/location" onDone={() => setDrawerOpen(false)}>
               Location
             </MobileLink>
+            {mode === "owner" ? (
+              <>
+                <MobileLink to="/owner/add" onDone={() => setDrawerOpen(false)}>
+                  Add dish
+                </MobileLink>
+                <MobileLink to="/owner/edit" onDone={() => setDrawerOpen(false)}>
+                  Edit menu
+                </MobileLink>
+              </>
+            ) : null}
             <div className="drawer-mode-group">
               {modes.map((item) => (
                 <button
@@ -485,6 +523,7 @@ function App() {
               <OwnerShell
                 menu={state.menu}
                 onAddMenuItem={addMenuItem}
+                onAddMenuItemsBatch={addMenuItemsBatch}
                 onUpdateMenuItem={updateMenuItem}
                 onDeleteMenuItem={deleteMenuItem}
                 onToggleMenuItemAvailable={toggleMenuItemAvailable}
@@ -1113,28 +1152,21 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
   );
 }
 
-function OwnerShell({ menu, onAddMenuItem, onUpdateMenuItem, onDeleteMenuItem, onToggleMenuItemAvailable }) {
+function OwnerShell({ menu, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem, onDeleteMenuItem, onToggleMenuItemAvailable }) {
   return (
     <section className="content-section page-section owner-area">
       <div className="section-heading">
         <p className="eyebrow">Owner mode</p>
         <h2 id="owner-title">Menu management</h2>
         <p>
-          Use <strong>Add dish</strong> to create items. Use <strong>Edit menu</strong> to change details, hide items from the guest menu, or delete them.
+          Use the header links <strong>Add dish</strong> and <strong>Edit menu</strong> (visible in owner mode) to build or change your menu. Hidden dishes stay off the guest menu.
         </p>
       </div>
-      <nav className="owner-subnav" aria-label="Owner tools">
-        <NavLink className="owner-subnav-link" to="/owner/add" end>
-          Add dish
-        </NavLink>
-        <NavLink className="owner-subnav-link" to="/owner/edit">
-          Edit menu
-        </NavLink>
-      </nav>
       <Outlet
         context={{
           menu,
           onAddMenuItem,
+          onAddMenuItemsBatch,
           onUpdateMenuItem,
           onDeleteMenuItem,
           onToggleMenuItemAvailable,
@@ -1145,7 +1177,8 @@ function OwnerShell({ menu, onAddMenuItem, onUpdateMenuItem, onDeleteMenuItem, o
 }
 
 function OwnerAddPage() {
-  const { onAddMenuItem } = useOutletContext();
+  const { onAddMenuItemsBatch } = useOutletContext();
+  const [stagedDishes, setStagedDishes] = useState([]);
   const [imageSource, setImageSource] = useState("url");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -1171,17 +1204,19 @@ function OwnerAddPage() {
     }
   }
 
-  function submitMenuItem(event) {
+  function addToPreview(event) {
     event.preventDefault();
     if (!form.name.trim() || !form.description.trim() || !form.price) return;
-    onAddMenuItem({
+    const payload = {
+      id: `preview-${Date.now()}`,
       name: form.name.trim(),
       price: Number(form.price),
       category: form.category.trim() || "Specials",
       badge: form.badge.trim() || "New",
       description: form.description.trim(),
       image: form.image.trim(),
-    });
+    };
+    setStagedDishes((current) => [...current, payload]);
     setForm({
       name: "",
       price: "",
@@ -1193,115 +1228,173 @@ function OwnerAddPage() {
     setImageSource("url");
   }
 
+  function removeStaged(id) {
+    setStagedDishes((current) => current.filter((d) => d.id !== id));
+  }
+
+  function submitStagedToMenu() {
+    if (!stagedDishes.length) return;
+    const payloads = stagedDishes.map(({ id: _id, ...rest }) => rest);
+    onAddMenuItemsBatch(payloads);
+    setStagedDishes([]);
+  }
+
   return (
-    <div className="owner-layout owner-add-only">
-      <form className="owner-form" onSubmit={submitMenuItem}>
-        <label>
-          Dish name
-          <input
-            value={form.name}
-            onChange={(event) => updateField("name", event.target.value)}
-            placeholder="Midnight Melt"
-            required
-          />
-        </label>
-        <label>
-          Price
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.price}
-            onChange={(event) => updateField("price", event.target.value)}
-            placeholder="11.99"
-            required
-          />
-        </label>
-        <label>
-          Category
-          <input
-            value={form.category}
-            onChange={(event) => updateField("category", event.target.value)}
-            placeholder="Specials"
-          />
-        </label>
-        <label>
-          Badge
-          <input value={form.badge} onChange={(event) => updateField("badge", event.target.value)} placeholder="New" />
-        </label>
+    <div className="owner-add-workspace">
+      <div className="owner-add-form-column">
+        <form className="owner-form owner-add-form" onSubmit={addToPreview}>
+          <label>
+            Dish name
+            <input
+              value={form.name}
+              onChange={(event) => updateField("name", event.target.value)}
+              placeholder="Midnight Melt"
+              required
+            />
+          </label>
+          <label>
+            Price
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={(event) => updateField("price", event.target.value)}
+              placeholder="11.99"
+              required
+            />
+          </label>
+          <label>
+            Category
+            <input
+              value={form.category}
+              onChange={(event) => updateField("category", event.target.value)}
+              placeholder="Specials"
+            />
+          </label>
+          <label>
+            Badge
+            <input value={form.badge} onChange={(event) => updateField("badge", event.target.value)} placeholder="New" />
+          </label>
 
-        <fieldset className="owner-image-fieldset full-row">
-          <legend>Dish image</legend>
-          <div className="owner-image-source-options" role="radiogroup" aria-label="Image source">
-            <label className="owner-image-radio">
-              <input
-                type="radio"
-                name="owner-add-image-source"
-                checked={imageSource === "url"}
-                onChange={() => setImageSourceMode("url")}
-              />
-              <span>Image URL</span>
-            </label>
-            <label className="owner-image-radio">
-              <input
-                type="radio"
-                name="owner-add-image-source"
-                checked={imageSource === "upload"}
-                onChange={() => setImageSourceMode("upload")}
-              />
-              <span>Upload image</span>
-            </label>
-          </div>
-
-          {imageSource === "url" ? (
-            <label className="owner-image-url-label">
-              Link
-              <input
-                value={form.image.startsWith("data:") ? "" : form.image}
-                onChange={(event) => updateField("image", event.target.value)}
-                placeholder="https://… or /assets/diner-burger.png"
-              />
-            </label>
-          ) : (
-            <div className="owner-image-upload-block">
-              {form.image ? (
-                <div className="owner-image-upload-preview-row">
-                  <img src={form.image} alt="" className="owner-image-thumb" />
-                  <div className="owner-image-upload-actions">
-                    <button type="button" className="secondary-cta small" onClick={() => setUploadModalOpen(true)}>
-                      Replace image
-                    </button>
-                    <button type="button" className="owner-image-clear" onClick={() => updateField("image", "")}>
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="owner-image-upload-empty">No image selected yet.</p>
-              )}
-              <button type="button" className="primary-cta small owner-upload-open-btn" onClick={() => setUploadModalOpen(true)}>
-                {form.image ? "Open uploader" : "Upload image…"}
-              </button>
-              <p className="owner-image-upload-hint">Opens a window where you can drag one photo or pick it from your files.</p>
+          <fieldset className="owner-image-fieldset full-row">
+            <legend>Dish image</legend>
+            <div className="owner-image-source-options" role="radiogroup" aria-label="Image source">
+              <label className="owner-image-radio">
+                <input
+                  type="radio"
+                  name="owner-add-image-source"
+                  checked={imageSource === "url"}
+                  onChange={() => setImageSourceMode("url")}
+                />
+                <span>Image URL</span>
+              </label>
+              <label className="owner-image-radio">
+                <input
+                  type="radio"
+                  name="owner-add-image-source"
+                  checked={imageSource === "upload"}
+                  onChange={() => setImageSourceMode("upload")}
+                />
+                <span>Upload image</span>
+              </label>
             </div>
-          )}
-        </fieldset>
 
-        <label className="full-row">
-          Description
-          <textarea
-            value={form.description}
-            onChange={(event) => updateField("description", event.target.value)}
-            placeholder="Short appetite-driven dish description"
-            rows="4"
-            required
-          />
-        </label>
-        <button className="primary-cta" type="submit">
-          <Icon name="plus" />
-          Add Dish
-        </button>
-      </form>
+            {imageSource === "url" ? (
+              <label className="owner-image-url-label">
+                Link
+                <input
+                  value={form.image.startsWith("data:") ? "" : form.image}
+                  onChange={(event) => updateField("image", event.target.value)}
+                  placeholder="https://… or /assets/diner-burger.png"
+                />
+              </label>
+            ) : (
+              <div className="owner-image-upload-block">
+                {form.image ? (
+                  <div className="owner-image-upload-preview-row">
+                    <img src={form.image} alt="" className="owner-image-thumb" />
+                    <div className="owner-image-upload-actions">
+                      <button type="button" className="primary-cta small" onClick={() => setUploadModalOpen(true)}>
+                        Change image
+                      </button>
+                      <button type="button" className="owner-image-clear" onClick={() => updateField("image", "")}>
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="owner-image-upload-empty">No image selected yet.</p>
+                    <button type="button" className="primary-cta small owner-upload-open-btn" onClick={() => setUploadModalOpen(true)}>
+                      Upload image…
+                    </button>
+                  </>
+                )}
+                <p className="owner-image-upload-hint">Opens a window where you can drag one photo or pick it from your files.</p>
+              </div>
+            )}
+          </fieldset>
+
+          <label className="full-row">
+            Description
+            <textarea
+              value={form.description}
+              onChange={(event) => updateField("description", event.target.value)}
+              placeholder="Short appetite-driven dish description"
+              rows="4"
+              required
+            />
+          </label>
+          <button className="primary-cta full-row" type="submit">
+            <Icon name="plus" />
+            Add to preview
+          </button>
+        </form>
+      </div>
+
+      <aside className="owner-add-preview-column" aria-labelledby="owner-preview-title">
+        <div className="owner-add-preview-head">
+          <h3 id="owner-preview-title">New dishes preview</h3>
+          <p className="owner-add-preview-sub">
+            Queued items appear here. Submit when you are ready to publish them to the live menu.
+          </p>
+        </div>
+
+        {stagedDishes.length === 0 ? (
+          <p className="owner-add-preview-empty">Nothing queued yet. Fill the form and choose &quot;Add to preview&quot;.</p>
+        ) : (
+          <ul className="owner-add-preview-list">
+            {stagedDishes.map((dish) => (
+              <li key={dish.id} className="owner-add-preview-card">
+                <img src={dish.image || "/assets/diner-burger.png"} alt="" className="owner-add-preview-img" />
+                <div className="owner-add-preview-body">
+                  <strong>{dish.name}</strong>
+                  <p className="owner-add-preview-meta">
+                    {dish.category} · {formatPrice(dish.price)} · {dish.badge}
+                  </p>
+                  <p className="owner-add-preview-desc">{dish.description}</p>
+                </div>
+                <button type="button" className="owner-add-preview-remove" onClick={() => removeStaged(dish.id)} aria-label={`Remove ${dish.name} from preview`}>
+                  <Icon name="x" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="owner-add-preview-footer">
+          <button
+            type="button"
+            className="primary-cta owner-add-preview-submit"
+            disabled={!stagedDishes.length}
+            onClick={submitStagedToMenu}
+          >
+            Submit to menu
+          </button>
+          <p className="owner-add-preview-footnote">{stagedDishes.length} queued</p>
+        </div>
+      </aside>
 
       <OwnerImageUploadModal
         open={uploadModalOpen}
@@ -1517,8 +1610,8 @@ function OwnerEditDishPage() {
                 <div className="owner-image-upload-preview-row">
                   <img src={form.image} alt="" className="owner-image-thumb" />
                   <div className="owner-image-upload-actions">
-                    <button type="button" className="secondary-cta small" onClick={() => setUploadModalOpen(true)}>
-                      Replace image
+                    <button type="button" className="primary-cta small" onClick={() => setUploadModalOpen(true)}>
+                      Change image
                     </button>
                     <button type="button" className="owner-image-clear" onClick={() => updateField("image", "")}>
                       Clear
@@ -1526,11 +1619,13 @@ function OwnerEditDishPage() {
                   </div>
                 </div>
               ) : (
-                <p className="owner-image-upload-empty">No image selected yet.</p>
+                <>
+                  <p className="owner-image-upload-empty">No image selected yet.</p>
+                  <button type="button" className="primary-cta small owner-upload-open-btn" onClick={() => setUploadModalOpen(true)}>
+                    Upload image…
+                  </button>
+                </>
               )}
-              <button type="button" className="primary-cta small owner-upload-open-btn" onClick={() => setUploadModalOpen(true)}>
-                {form.image ? "Open uploader" : "Upload image…"}
-              </button>
               <p className="owner-image-upload-hint">Opens a window where you can drag one photo or pick it from your files.</p>
             </div>
           )}
