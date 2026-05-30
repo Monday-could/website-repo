@@ -142,14 +142,46 @@ function App() {
   const [mode, setMode] = useState("customer");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [state, setState] = useState(loadState);
+  const [pendingOrderItem, setPendingOrderItem] = useState(null);
+  const [orderNotesDraft, setOrderNotesDraft] = useState("");
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  useEffect(() => {
+    if (!pendingOrderItem) return;
+    function onKeyDown(event) {
+      if (event.key === "Escape") {
+        setPendingOrderItem(null);
+        setOrderNotesDraft("");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pendingOrderItem]);
+
   const cartCount = state.orders.filter((order) => order.status === "new").length;
 
-  function addOrder(menuItem) {
+  function openOrderNoteModal(menuItem) {
+    setPendingOrderItem(menuItem);
+    setOrderNotesDraft("");
+  }
+
+  function closeOrderNoteModal() {
+    setPendingOrderItem(null);
+    setOrderNotesDraft("");
+  }
+
+  function submitOrderWithNotes() {
+    if (!pendingOrderItem) return;
+    addOrder(pendingOrderItem, orderNotesDraft);
+    closeOrderNoteModal();
+  }
+
+  function addOrder(menuItem, notesInput) {
+    const trimmed = typeof notesInput === "string" ? notesInput.trim() : "";
+    const notes = trimmed.length > 0 ? trimmed : "No special request";
     setState((current) => ({
       ...current,
       orders: [
@@ -160,7 +192,7 @@ function App() {
           price: menuItem.price,
           quantity: 1,
           customerName: "Walk-in Guest",
-          notes: "No special request",
+          notes,
           status: "new",
           ready: false,
           createdAt: new Date().toISOString(),
@@ -335,10 +367,12 @@ function App() {
 
       <main>
         <Routes>
-          <Route path="/" element={<HomePage menu={state.menu} orders={state.orders} onOrder={addOrder} />} />
+          <Route path="/" element={<HomePage menu={state.menu} orders={state.orders} onOrder={openOrderNoteModal} />} />
           <Route
             path="/menu"
-            element={<MenuPage menu={state.menu} orders={state.orders} onOrder={addOrder} onReview={addReview} />}
+            element={
+              <MenuPage menu={state.menu} orders={state.orders} onOrder={openOrderNoteModal} onReview={addReview} />
+            }
           />
           <Route
             path="/orders"
@@ -370,6 +404,50 @@ function App() {
           </Link>
         </div>
       </footer>
+
+      {pendingOrderItem && (
+        <div
+          className="order-modal-backdrop"
+          role="presentation"
+          onClick={closeOrderNoteModal}
+        >
+          <div
+            className="order-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-notes-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="order-modal-header">
+              <h2 id="order-notes-title">Add order</h2>
+              <button className="icon-button" type="button" aria-label="Close" onClick={closeOrderNoteModal}>
+                <Icon name="x" />
+              </button>
+            </div>
+            <p className="order-modal-dish">{pendingOrderItem.name}</p>
+            <p className="order-modal-hint">Add a note for the kitchen (optional).</p>
+            <label className="order-modal-label">
+              Notes
+              <textarea
+                className="order-modal-textarea"
+                value={orderNotesDraft}
+                onChange={(event) => setOrderNotesDraft(event.target.value)}
+                placeholder="Allergies, spice level, sides…"
+                rows={4}
+                autoFocus
+              />
+            </label>
+            <div className="order-modal-actions">
+              <button className="secondary-cta" type="button" onClick={closeOrderNoteModal}>
+                Cancel
+              </button>
+              <button className="primary-cta" type="button" onClick={submitOrderWithNotes}>
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -645,6 +723,7 @@ function StaffMode({ orders, onStatusChange, onReady }) {
 
 function OrderTicket({ order, children, onReady, hideReadyState = false }) {
   const isReady = Boolean(order.ready);
+  const showReadyPill = !hideReadyState && order.status === "accepted";
 
   return (
     <article className={`ticket status-${order.status}`}>
@@ -665,7 +744,7 @@ function OrderTicket({ order, children, onReady, hideReadyState = false }) {
               Ready
             </button>
           )}
-          {!hideReadyState && (
+          {showReadyPill && (
             <span className={isReady ? "ready-pill ready" : "ready-pill not-ready"}>
               {isReady ? "READY" : "NOT READY"}
             </span>
