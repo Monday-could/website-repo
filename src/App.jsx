@@ -1,4 +1,4 @@
-﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Link,
   NavLink,
@@ -47,6 +47,7 @@ const MENU_NEW_MAX_AGE_MS = 14 * MS_PER_DAY;
 const POPULAR_SALES_TOP_N = 5;
 /** How many newest reviews to show on each menu card before opening the full list modal. */
 const MENU_CARD_REVIEW_PREVIEW_COUNT = 3;
+const TOAST_TTL_MS = 4200;
 
 const AUTO_BADGE_SEASONAL_NEW = "Seasonal/New";
 
@@ -451,6 +452,22 @@ function DishReviewsModal({ open, onClose, item }) {
   );
 }
 
+function ToastStack({ toasts, onDismiss }) {
+  if (!toasts.length) return null;
+  return (
+    <div className="toast-stack" role="region" aria-label="Notifications" aria-live="polite">
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast toast--${t.variant || "success"}`} role="status">
+          <p className="toast-message">{t.message}</p>
+          <button type="button" className="toast-dismiss" aria-label="Dismiss notification" onClick={() => onDismiss(t.id)}>
+            <Icon name="x" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Icon({ name }) {
   const paths = {
     menu: "M4 7h16M4 12h16M4 17h16",
@@ -477,6 +494,19 @@ function App() {
   const [state, setState] = useState(loadState);
   const [pendingOrderItem, setPendingOrderItem] = useState(null);
   const [orderNotesDraft, setOrderNotesDraft] = useState("");
+  const [toasts, setToasts] = useState([]);
+
+  const pushToast = useCallback((message, variant = "success") => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [...prev.slice(-3), { id, message, variant }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, TOAST_TTL_MS);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -516,6 +546,7 @@ function App() {
     if (!pendingOrderItem) return;
     const trimmed = typeof orderNotesDraft === "string" ? orderNotesDraft.trim() : "";
     const notes = trimmed.length > 0 ? trimmed : "No special request";
+    const dishName = pendingOrderItem.name;
     setState((current) => ({
       ...current,
       cart: [
@@ -532,6 +563,7 @@ function App() {
       ],
     }));
     closeOrderNoteModal();
+    pushToast(`Added “${dishName}” to your cart.`);
   }
 
   function updateCartLineQuantity(lineId, newQuantity) {
@@ -604,6 +636,7 @@ function App() {
           : item,
       ),
     }));
+    pushToast("Thanks — your review was posted.");
   }
 
   function addMenuItem(item) {
@@ -818,7 +851,7 @@ function App() {
         </div>
       )}
 
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<HomePage menu={state.menu} orders={state.orders} onOrder={openOrderNoteModal} />} />
           <Route
@@ -833,8 +866,17 @@ function App() {
               <OrdersPage
                 mode={mode}
                 orders={state.orders}
-                onStatusChange={updateOrderStatus}
-                onReady={markOrderReady}
+                onStatusChange={(orderId, status) => {
+                  updateOrderStatus(orderId, status);
+                  pushToast(
+                    status === "accepted" ? "Ticket accepted — kitchen can start prep." : "Ticket declined.",
+                    status === "accepted" ? "success" : "info",
+                  );
+                }}
+                onReady={(orderId) => {
+                  markOrderReady(orderId);
+                  pushToast("Marked ready for guest pickup.");
+                }}
               />
             }
           />
@@ -847,6 +889,9 @@ function App() {
                 onUpdateQuantity={updateCartLineQuantity}
                 onRemoveLine={removeCartLine}
                 onCheckout={checkoutCart}
+                onCheckoutSuccess={({ qty, lines }) => {
+                  pushToast(`Order sent — ${qty} item(s) on ${lines} ticket line(s).`);
+                }}
               />
             }
           />
@@ -931,6 +976,7 @@ function App() {
           </div>
         </div>
       )}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
@@ -943,7 +989,7 @@ function MobileLink({ to, onDone, children }) {
   );
 }
 
-function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
+function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckoutSuccess }) {
   const navigate = useNavigate();
   const subtotal = useMemo(
     () => cart.reduce((sum, line) => sum + Number(line.price) * Number(line.quantity || 1), 0),
@@ -952,7 +998,10 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
 
   function handleCheckout() {
     if (!cart.length) return;
+    const qty = cart.reduce((sum, line) => sum + Number(line.quantity || 1), 0);
+    const lines = cart.length;
     onCheckout();
+    onCheckoutSuccess?.({ qty, lines });
     navigate("/orders");
   }
 
@@ -1067,7 +1116,15 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
   }
 
   if (!count) {
-    return <p className="empty-state home-carousel-empty">No dishes to show yet.</p>;
+    return (
+      <div className="empty-state empty-state--soft home-carousel-empty" role="status">
+        <p className="empty-state-title">No dishes to show yet</p>
+        <p className="empty-state-hint">Open the full menu or add dishes in owner mode.</p>
+        <Link className="secondary-cta" to="/menu">
+          View full menu
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -1185,7 +1242,10 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
           ))}
         </div>
       ) : (
-        <p className="empty-state menu-filter-empty">No dishes match these filters. Clear filters or check back later.</p>
+        <div className="empty-state empty-state--soft menu-filter-empty" role="status">
+          <p className="empty-state-title">No dishes match these filters</p>
+          <p className="empty-state-hint">Try another category or badge, or tap Clear filters in the bar above.</p>
+        </div>
       )}
 
       <OrderHistory orders={orders} />
@@ -1363,7 +1423,13 @@ function OrderHistory({ orders }) {
           ))}
         </div>
       ) : (
-        <p className="empty-state">No orders yet. Add a menu item to create the first kitchen ticket.</p>
+        <div className="empty-state empty-state--soft order-history-empty">
+          <p className="empty-state-title">No kitchen tickets yet</p>
+          <p className="empty-state-hint">Check out from the cart — each line becomes a ticket for staff.</p>
+          <Link className="secondary-cta" to="/menu">
+            Browse menu
+          </Link>
+        </div>
       )}
     </div>
   );
@@ -1416,7 +1482,10 @@ function StaffMode({ orders, onStatusChange, onReady }) {
                 </OrderTicket>
               ))
             ) : (
-              <p className="empty-state">No new orders waiting.</p>
+              <div className="empty-state empty-state--soft staff-empty">
+                <p className="empty-state-title">No new orders waiting</p>
+                <p className="empty-state-hint">Customer checkouts will appear here for Accept or Decline.</p>
+              </div>
             )}
           </div>
         </div>
@@ -1432,7 +1501,10 @@ function StaffMode({ orders, onStatusChange, onReady }) {
                 />
               ))
             ) : (
-              <p className="empty-state">Accepted and declined tickets will appear here.</p>
+              <div className="empty-state empty-state--soft staff-empty">
+                <p className="empty-state-title">No handled tickets yet</p>
+                <p className="empty-state-hint">Accepted and declined orders show up here with ready status.</p>
+              </div>
             )}
           </div>
         </div>
@@ -2220,20 +2292,42 @@ function LocationPage() {
   return (
     <section className="content-section page-section" aria-labelledby="location-title">
       <div className="section-heading">
-        <p className="eyebrow">Location</p>
+        <p className="eyebrow">Visit us</p>
         <h2 id="location-title">Chicago Demo Store</h2>
-        <p>Use this page later for real store hours, delivery zones, and map data from Supabase.</p>
+        <p>Hours, contact, and service notes — swap in live data from your CMS or Supabase when you deploy.</p>
       </div>
       <div className="location-layout">
         <div className="location-panel">
           <Icon name="pin" />
-          <h3>Downtown Diner Counter</h3>
-          <p>1200 W Demo Street, Chicago, IL</p>
-          <p>Open daily - 7:00 AM - 11:00 PM</p>
+          <h3>Address</h3>
+          <p className="location-address">1200 W Demo Street, Chicago, IL 60607</p>
+          <p className="location-meta">Street parking and Blue Line within two blocks.</p>
+          <dl className="location-hours" aria-label="Opening hours">
+            <div className="location-hours-row">
+              <dt>Mon–Thu</dt>
+              <dd>7:00 AM – 10:00 PM</dd>
+            </div>
+            <div className="location-hours-row">
+              <dt>Fri–Sat</dt>
+              <dd>7:00 AM – 11:00 PM</dd>
+            </div>
+            <div className="location-hours-row">
+              <dt>Sunday</dt>
+              <dd>8:00 AM – 9:00 PM</dd>
+            </div>
+          </dl>
+          <div className="location-contact">
+            <a href="tel:+13125550199">(312) 555-0199</a>
+            <span aria-hidden="true"> · </span>
+            <a href="mailto:hello@dinerdesk.demo">hello@dinerdesk.demo</a>
+          </div>
+          <p className="location-disclaimer">Demo contact details — replace before going live.</p>
         </div>
         <div className="location-panel red-panel">
-          <h3>Pickup and dine-in</h3>
-          <p>Orders from this demo app can be reviewed by staff before the ticket is accepted.</p>
+          <h3>Pickup, dine-in &amp; diet</h3>
+          <p>Orders from this app appear as tickets for staff to accept before the kitchen starts.</p>
+          <p>Add allergy, spice, or portion notes in the cart — they print on the ticket.</p>
+          <p className="location-a11y-note">Ask your server about gluten-friendly or dairy-free swaps; not all modifiers are in the demo menu.</p>
         </div>
       </div>
     </section>
@@ -2246,12 +2340,23 @@ function ProfilePage({ orders }) {
       <div className="section-heading">
         <p className="eyebrow">Profile</p>
         <h2 id="profile-title">Guest account</h2>
-        <p>This placeholder is ready for login and order history after authentication is added.</p>
+        <p>This placeholder is ready for login and synced order history after you add authentication.</p>
       </div>
       <div className="profile-summary">
         <strong>{orders.length}</strong>
         <span>Total demo orders saved in this browser</span>
       </div>
+      {orders.length === 0 ? (
+        <div className="empty-state empty-state--soft profile-empty-panel">
+          <p className="empty-state-title">No orders in this browser yet</p>
+          <p className="empty-state-hint">Place an order from the menu and check out — your demo history will show here.</p>
+          <Link className="primary-cta" to="/menu">
+            Go to menu
+          </Link>
+        </div>
+      ) : (
+        <p className="profile-footnote">Demo data stays in localStorage on this device until you clear site data.</p>
+      )}
     </section>
   );
 }
