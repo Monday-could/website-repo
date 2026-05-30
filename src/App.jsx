@@ -6,12 +6,27 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useOutletContext,
   useParams,
 } from "react-router-dom";
 
 const STORAGE_KEY = "diner-desk-state-v2";
+
+/** Queued add-dish preview rows (owner); survives tab switches and refresh within the same browser tab. */
+const OWNER_STAGED_SESSION_KEY = "diner-desk-owner-staged-preview-v1";
+
+function loadOwnerStagedSession() {
+  try {
+    const raw = window.sessionStorage.getItem(OWNER_STAGED_SESSION_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 /** Local image uploads are stored as data URLs; keep a modest cap for localStorage. */
 const MAX_OWNER_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -159,6 +174,7 @@ function Icon({ name }) {
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState("customer");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [state, setState] = useState(loadState);
@@ -168,6 +184,12 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/owner")) {
+      setMode("owner");
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!pendingOrderItem) return;
@@ -1153,13 +1175,39 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
 }
 
 function OwnerShell({ menu, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem, onDeleteMenuItem, onToggleMenuItemAvailable }) {
+  const [stagedDishes, setStagedDishes] = useState(loadOwnerStagedSession);
+
+  useEffect(() => {
+    try {
+      if (!stagedDishes.length) {
+        window.sessionStorage.removeItem(OWNER_STAGED_SESSION_KEY);
+      } else {
+        window.sessionStorage.setItem(OWNER_STAGED_SESSION_KEY, JSON.stringify(stagedDishes));
+      }
+    } catch {
+      /* ignore quota / privacy mode */
+    }
+  }, [stagedDishes]);
+
+  function addStagedDish(dish) {
+    setStagedDishes((current) => [...current, dish]);
+  }
+
+  function removeStagedDish(id) {
+    setStagedDishes((current) => current.filter((d) => d.id !== id));
+  }
+
+  function clearStagedDishes() {
+    setStagedDishes([]);
+  }
+
   return (
     <section className="content-section page-section owner-area">
       <div className="section-heading">
         <p className="eyebrow">Owner mode</p>
         <h2 id="owner-title">Menu management</h2>
         <p>
-          Use the header links <strong>Add dish</strong> and <strong>Edit menu</strong> (visible in owner mode) to build or change your menu. Hidden dishes stay off the guest menu.
+          Use the header links <strong>Add dish</strong> and <strong>Edit menu</strong> (visible in owner mode). Hidden dishes stay off the guest menu. The add-dish preview queue is kept when you switch between those pages or refresh this tab, until you submit to the menu or remove all items.
         </p>
       </div>
       <Outlet
@@ -1170,6 +1218,10 @@ function OwnerShell({ menu, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem
           onUpdateMenuItem,
           onDeleteMenuItem,
           onToggleMenuItemAvailable,
+          stagedDishes,
+          addStagedDish,
+          removeStagedDish,
+          clearStagedDishes,
         }}
       />
     </section>
@@ -1177,8 +1229,7 @@ function OwnerShell({ menu, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem
 }
 
 function OwnerAddPage() {
-  const { onAddMenuItemsBatch } = useOutletContext();
-  const [stagedDishes, setStagedDishes] = useState([]);
+  const { onAddMenuItemsBatch, stagedDishes, addStagedDish, removeStagedDish, clearStagedDishes } = useOutletContext();
   const [imageSource, setImageSource] = useState("url");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -1216,7 +1267,7 @@ function OwnerAddPage() {
       description: form.description.trim(),
       image: form.image.trim(),
     };
-    setStagedDishes((current) => [...current, payload]);
+    addStagedDish(payload);
     setForm({
       name: "",
       price: "",
@@ -1229,14 +1280,14 @@ function OwnerAddPage() {
   }
 
   function removeStaged(id) {
-    setStagedDishes((current) => current.filter((d) => d.id !== id));
+    removeStagedDish(id);
   }
 
   function submitStagedToMenu() {
     if (!stagedDishes.length) return;
     const payloads = stagedDishes.map(({ id: _id, ...rest }) => rest);
     onAddMenuItemsBatch(payloads);
-    setStagedDishes([]);
+    clearStagedDishes();
   }
 
   return (
