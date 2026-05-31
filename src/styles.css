@@ -1852,45 +1852,6 @@ textarea {
   text-underline-offset: 3px;
 }
 
-.header-user-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--black);
-}
-
-.header-user-name {
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-a.header-user-name.header-user-name--link {
-  color: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-a.header-user-name.header-user-name--link:hover {
-  color: var(--red);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.drawer-user-name-link {
-  color: var(--red);
-  font-weight: 900;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.drawer-user-name-link:hover {
-  color: var(--black);
-}
-
 .header-logout-button {
   padding: 6px 12px;
   border: 2px solid var(--black);
@@ -1904,13 +1865,6 @@ a.header-user-name.header-user-name--link:hover {
 .header-logout-button:hover {
   color: var(--red);
   border-color: var(--red);
-}
-
-.drawer-user-line {
-  margin: 8px 0 4px;
-  padding: 0 4px;
-  font-size: 14px;
-  color: var(--text-gray);
 }
 
 /* Profile (guest): title + login/register on one row */
@@ -2219,6 +2173,13 @@ a.drawer-link.active {
   border-top: 1px solid var(--border);
 }
 
+.drawer-logout-after-mode {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-weight: 800;
+}
+
 .order-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -2270,6 +2231,26 @@ a.drawer-link.active {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.order-modal.profile-order-sheet-modal {
+  width: min(440px, 100%);
+  max-height: min(88vh, 640px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.profile-order-sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding-right: 2px;
+}
+
+.profile-order-history-preview {
+  margin-top: 4px;
 }
 
 .dish-reviews-modal-count {

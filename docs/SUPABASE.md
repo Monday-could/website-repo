@@ -2,6 +2,8 @@
 
 The app connects to Supabase via **Vite environment variables**. The browser uses only the **`anon` public key** and the user JWT. **Never** put `service_role` in the repo, in `.env` used by the Vite client, or in any value shipped to the browser bundle.
 
+**Session persistence:** Supabase Auth uses the default **browser `localStorage`** (same origin). A new tab in the same browser profile typically **stays signed in**, consistent with most sites. Use **Log out** on shared computers.
+
 **Linked project:** *Tom's Mysterious Restaurant Web* — `project_ref` `fxnngojptcdlukqvfiov`. A root `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for this project may already exist after provisioning; keep it out of git.
 
 ## Environment variables

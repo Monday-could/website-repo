@@ -84,6 +84,8 @@ function loadOwnerStagedSession() {
 const MAX_OWNER_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const POPULAR_SALES_TOP_N = 5;
+/** How many newest personal orders to show on the profile page before “view all”. */
+const PROFILE_ORDER_HISTORY_PREVIEW = 3;
 /** How many newest reviews to show on each menu card before opening the full list modal. */
 const MENU_CARD_REVIEW_PREVIEW_COUNT = 1;
 const TOAST_TTL_MS = 4200;
@@ -1187,42 +1189,16 @@ function App() {
         <nav className="desktop-nav" aria-label={t("nav.primaryAria")}>
           <NavLink to="/menu">{t("header.navMenu")}</NavLink>
           <NavLink to="/location">{t("header.navLocation")}</NavLink>
-          {authSession?.role === "customer" ? (
-            <NavLink to="/orders">{t("header.navMyOrders")}</NavLink>
-          ) : null}
           {!authSession ? (
             <>
               <NavLink to="/login">{t("header.login")}</NavLink>
               <NavLink to="/register">{t("header.register")}</NavLink>
             </>
-          ) : (
-            <span className="header-user-inline">
-              {authSession.role === "staff" ? (
-                <Link
-                  className="header-user-name header-user-name--link"
-                  to="/orders"
-                  aria-label={t("header.goStaffOrdersAria")}
-                  onClick={() => setMode("staff")}
-                >
-                  {authSession.username}
-                </Link>
-              ) : authSession.role === "owner" ? (
-                <Link
-                  className="header-user-name header-user-name--link"
-                  to="/owner"
-                  aria-label={t("header.goOwnerConsoleAria")}
-                  onClick={() => setMode("owner")}
-                >
-                  {authSession.username}
-                </Link>
-              ) : (
-                <span className="header-user-name">{authSession.username}</span>
-              )}
-              <button type="button" className="header-logout-button" onClick={handleLogout}>
-                {t("header.logout")}
-              </button>
-            </span>
-          )}
+          ) : authSession.role === "staff" ? (
+            <NavLink to="/orders" onClick={() => setMode("staff")}>
+              {t("header.navLiveTickets")}
+            </NavLink>
+          ) : null}
           {authSession?.role === "owner" ? (
             <>
               <NavLink to="/owner/add" end>
@@ -1289,6 +1265,11 @@ function App() {
               ))}
             </div>
           </details>
+          {authSession ? (
+            <button type="button" className="header-logout-button" onClick={handleLogout}>
+              {t("header.logout")}
+            </button>
+          ) : null}
           <button
             className="mobile-menu"
             type="button"
@@ -1325,11 +1306,6 @@ function App() {
             <MobileLink to="/location" onDone={() => setDrawerOpen(false)}>
               {t("drawer.location")}
             </MobileLink>
-            {authSession?.role === "customer" ? (
-              <MobileLink to="/orders" onDone={() => setDrawerOpen(false)}>
-                {t("header.navMyOrders")}
-              </MobileLink>
-            ) : null}
             {!authSession ? (
               <>
                 <MobileLink to="/login" onDone={() => setDrawerOpen(false)}>
@@ -1341,46 +1317,28 @@ function App() {
               </>
             ) : (
               <>
-                <p className="drawer-user-line">
-                  {t("drawer.signedInPrefix")}
-                  {authSession.role === "staff" ? (
-                    <Link
-                      className="drawer-user-name-link"
-                      to="/orders"
-                      aria-label={t("header.goStaffOrdersAria")}
-                      onClick={() => {
-                        setMode("staff");
-                        setDrawerOpen(false);
-                      }}
-                    >
-                      <strong>{authSession.username}</strong>
-                    </Link>
-                  ) : authSession.role === "owner" ? (
-                    <Link
-                      className="drawer-user-name-link"
-                      to="/owner"
-                      aria-label={t("header.goOwnerConsoleAria")}
-                      onClick={() => {
-                        setMode("owner");
-                        setDrawerOpen(false);
-                      }}
-                    >
-                      <strong>{authSession.username}</strong>
-                    </Link>
-                  ) : (
-                    <strong>{authSession.username}</strong>
-                  )}
-                </p>
-                <button
-                  className="drawer-link"
-                  type="button"
-                  onClick={() => {
-                    handleLogout();
-                    setDrawerOpen(false);
-                  }}
-                >
-                  {t("drawer.logout")}
-                </button>
+                {authSession.role === "staff" ? (
+                  <MobileLink
+                    to="/orders"
+                    onDone={() => {
+                      setMode("staff");
+                      setDrawerOpen(false);
+                    }}
+                  >
+                    {t("header.navLiveTickets")}
+                  </MobileLink>
+                ) : null}
+                {authSession.role === "owner" ? (
+                  <MobileLink
+                    to="/owner"
+                    onDone={() => {
+                      setMode("owner");
+                      setDrawerOpen(false);
+                    }}
+                  >
+                    {t("ownerShell.eyebrow")}
+                  </MobileLink>
+                ) : null}
               </>
             )}
             {authSession?.role === "owner" ? (
@@ -1411,6 +1369,18 @@ function App() {
                 </button>
               ))}
             </div>
+            {authSession ? (
+              <button
+                className="drawer-link drawer-logout-after-mode"
+                type="button"
+                onClick={() => {
+                  handleLogout();
+                  setDrawerOpen(false);
+                }}
+              >
+                {t("drawer.logout")}
+              </button>
+            ) : null}
           </aside>
         </div>
       )}
@@ -2224,6 +2194,82 @@ function OrderTicket({ order, children, onReady, hideReadyState = false }) {
         </div>
       </div>
     </article>
+  );
+}
+
+function OrderHistorySheet({ orders, onClose }) {
+  const { t } = useI18n();
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="order-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="order-modal profile-order-sheet-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-order-sheet-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="order-modal-header">
+          <h2 id="profile-order-sheet-title">{t("profile.allOrdersTitle")}</h2>
+          <button type="button" className="icon-button" aria-label={t("dishReviews.close")} onClick={onClose}>
+            <Icon name="x" />
+          </button>
+        </div>
+        <div className="profile-order-sheet-scroll" role="list">
+          <div className="ticket-list">
+            {orders.map((order) => (
+              <OrderTicket key={order.id} order={order} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileOrderHistoryBlock({ session, orders }) {
+  const { t } = useI18n();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const mine = useMemo(() => getPersonalOrdersForSession(session, orders), [session?.id, orders]);
+  const preview = useMemo(() => mine.slice(0, PROFILE_ORDER_HISTORY_PREVIEW), [mine]);
+
+  if (!mine.length) {
+    return (
+      <div className="empty-state empty-state--soft profile-empty-panel">
+        <p className="empty-state-title">{t("profile.orderHistoryEmptyTitle")}</p>
+        <p className="empty-state-hint">{t("profile.orderHistoryEmptyHint")}</p>
+        <Link className="primary-cta" to="/menu">
+          {t("profile.goMenu")}
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="order-history profile-order-history-preview">
+        <div className="ticket-list" role="list">
+          {preview.map((order) => (
+            <OrderTicket key={order.id} order={order} />
+          ))}
+        </div>
+      </div>
+      {mine.length > PROFILE_ORDER_HISTORY_PREVIEW ? (
+        <div className="profile-order-history-actions">
+          <button type="button" className="secondary-cta" onClick={() => setSheetOpen(true)}>
+            {t("profile.viewAllOrders")}
+          </button>
+        </div>
+      ) : null}
+      {sheetOpen ? <OrderHistorySheet orders={mine} onClose={() => setSheetOpen(false)} /> : null}
+    </>
   );
 }
 
@@ -3090,17 +3136,7 @@ function ProfilePage({ session, orders = [] }) {
             {t("profile.orderHistoryTitle")}
           </h3>
           <p className="profile-order-history-intro">{t("profile.orderHistoryIntro")}</p>
-          <CustomerOrderHistory session={session} orders={orders} context="profile" />
-          {session.role === "customer" ? (
-            <p className="profile-footnote profile-order-history-actions">
-              <Link to="/orders">{t("profile.linkMyOrders")}</Link>
-            </p>
-          ) : null}
-          {session.role === "staff" || session.role === "owner" ? (
-            <p className="profile-footnote profile-order-history-actions">
-              <Link to="/orders">{t("profile.linkKitchenDesk")}</Link>
-            </p>
-          ) : null}
+          <ProfileOrderHistoryBlock session={session} orders={orders} />
         </div>
       ) : null}
     </section>
