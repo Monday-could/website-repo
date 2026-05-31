@@ -2622,7 +2622,7 @@ a.drawer-link.active {
 
 }
 
-/* 中等宽度：第一行 Logo + 右侧控件，第二行主导航独占一行，避免店名被挤成逐字断行 */
+/* Medium widths: row 1 brand + actions; row 2 full-width nav — avoids ugly mid-word title breaks */
 @media (min-width: 921px) and (max-width: 1240px) {
   :root {
     --site-header-height: 120px;

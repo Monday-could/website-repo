@@ -312,7 +312,7 @@ const initialState = {
   cart: [],
 };
 
-/** 游客下单或未迁移的旧订单使用此 id；已登录用户使用 session.id */
+/** Id for guest checkout or legacy orders missing placedById; logged-in users use session.id */
 const GUEST_PLACED_BY_ID = "guest";
 
 function migrateOrderRow(order) {
@@ -321,7 +321,7 @@ function migrateOrderRow(order) {
   return { ...order, placedById: GUEST_PLACED_BY_ID };
 }
 
-/** 当前浏览者可见的「我的订单」子集；员工厨房等场景请使用完整 orders */
+/** Orders visible to the current viewer ("my tickets"); use full `orders` for staff kitchen, etc. */
 function filterOrdersForAccount(session, orders) {
   if (!Array.isArray(orders)) return [];
   if (!session) {
@@ -784,7 +784,7 @@ function App() {
         setMode("owner");
         return;
       }
-      // 已是老板账号但 mode 仍停留在 staff（例如从员工切去登录再登老板）时，纠正高亮
+      // Owner session but mode still "staff" (e.g. after account switch): fix mode highlight
       setMode((m) => (m === "staff" ? "owner" : m));
       return;
     }
@@ -793,7 +793,7 @@ function App() {
         setMode("staff");
         return;
       }
-      // 已是员工但 mode 误为 owner 时纠正（对称处理）
+      // Staff session but mode wrongly "owner": fix highlight (symmetric case)
       setMode((m) => (m === "owner" ? "staff" : m));
     }
   }, [location.pathname, authSession]);

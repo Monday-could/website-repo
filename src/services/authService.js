@@ -2,19 +2,20 @@
  * Authentication — demo implementation (localStorage + in-memory constants).
  *
  * ---------------------------------------------------------------------------
- * 接入数据库 / 后端时：请保留此文件的导出函数签名，在函数体内改为 fetch/API
- * 调用，并删除或迁移本地 DEMO_USERS / localStorage 逻辑。
+ * When wiring a database / backend: keep these exported function signatures,
+ * replace implementations with fetch/API calls, and remove or migrate local
+ * DEMO_* accounts and localStorage logic.
  * ---------------------------------------------------------------------------
  */
 
 export const AUTH_SESSION_KEY = "toms-auth-session-v1";
 export const AUTH_CUSTOMERS_KEY = "toms-auth-customers-v1";
 
-/** 内置员工账号（后期改为服务端校验） */
+/** Built-in staff account (replace with server-side validation later). */
 export const DEMO_STAFF_USERNAME = "worker";
 export const DEMO_STAFF_PASSWORD = "imworker";
 
-/** 内置老板账号（后期改为服务端校验） */
+/** Built-in owner account (replace with server-side validation later). */
 export const DEMO_OWNER_USERNAME = "boss";
 export const DEMO_OWNER_PASSWORD = "imboss";
 
@@ -53,7 +54,7 @@ function saveRegisteredCustomers(list) {
   window.localStorage.setItem(AUTH_CUSTOMERS_KEY, JSON.stringify(list));
 }
 
-/** 带 code 的错误，供 UI 层用 i18n 翻译（接入后端时可改为 API 错误码） */
+/** Error with `code` for UI i18n (can map to API error codes when using a backend). */
 export function authError(code) {
   const err = new Error(code);
   err.code = code;
@@ -61,7 +62,7 @@ export function authError(code) {
 }
 
 /**
- * 登录（后期改为 `POST /api/auth/login` 等）
+ * Sign in (replace with e.g. `POST /api/auth/login` later).
  * @returns {Promise<{ id: string, username: string, role: 'customer'|'staff'|'owner' }>}
  */
 export async function login({ username, password }) {
@@ -97,8 +98,8 @@ export async function login({ username, password }) {
 }
 
 /**
- * 顾客注册（后期改为 `POST /api/auth/register`）
- * 注意：当前为演示，密码以明文存于 localStorage，生产环境务必改为后端哈希。
+ * Customer registration (replace with e.g. `POST /api/auth/register` later).
+ * Demo only: passwords stored in plain text in localStorage — use server-side hashing in production.
  */
 export async function registerCustomer({ username, password }) {
   await Promise.resolve();
@@ -125,12 +126,12 @@ export async function registerCustomer({ username, password }) {
   return session;
 }
 
-/** 登出（后期改为清除 httpOnly Cookie 或调用 `POST /api/auth/logout`） */
+/** Sign out (later: clear httpOnly cookie or call `POST /api/auth/logout`). */
 export function logout() {
   persistSession(null);
 }
 
-/** 与初次进入站点时的模式栏同步 */
+/** Initial UI mode aligned with persisted session on first load. */
 export function initialModeFromSession() {
   const s = getPersistedSession();
   if (s?.role === "staff") return "staff";

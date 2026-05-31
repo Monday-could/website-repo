@@ -1,5 +1,5 @@
 /**
- * Site copy — English (default), 简体中文, Español.
+ * Site copy — English (default), Chinese (Simplified), Spanish.
  * Add keys here only; components use useI18n().t("dot.key", { var }).
  */
 
