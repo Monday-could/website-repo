@@ -1812,7 +1812,7 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
   }
 
   return (
-    <section className="content-section page-section" aria-labelledby="menu-title">
+    <section className="content-section page-section menu-page" aria-labelledby="menu-title">
       <div className="section-heading">
         <p className="eyebrow">{t("menuPage.eyebrow")}</p>
         <h2 id="menu-title">{t("menuPage.title")}</h2>
