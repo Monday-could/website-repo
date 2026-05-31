@@ -40,6 +40,7 @@ import { useI18n } from "./i18n/I18nContext.jsx";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher.jsx";
 
 const STORAGE_KEY = "diner-desk-state-v2";
+const MAX_ORDER_QUANTITY = 50;
 
 /** Internal path only (e.g. `/menu`); used after login/register to avoid open redirects. */
 function sanitizeReturnToParam(raw) {
@@ -316,10 +317,33 @@ function loadPersistedCart() {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) return [];
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed.cart) ? parsed.cart : [];
+    return sanitizeCartLines(Array.isArray(parsed.cart) ? parsed.cart : []);
   } catch {
     return [];
   }
+}
+
+function normalizeCartQuantity(value) {
+  const q = Math.floor(Number(value));
+  if (!Number.isFinite(q)) return 1;
+  return Math.max(1, Math.min(MAX_ORDER_QUANTITY, q));
+}
+
+function getCartQuantity(cart) {
+  return (Array.isArray(cart) ? cart : []).reduce((sum, line) => sum + normalizeCartQuantity(line?.quantity), 0);
+}
+
+function sanitizeCartLines(cart) {
+  if (!Array.isArray(cart)) return [];
+  let remaining = MAX_ORDER_QUANTITY;
+  const next = [];
+  for (const line of cart) {
+    if (!line || typeof line !== "object" || remaining <= 0) continue;
+    const quantity = Math.min(normalizeCartQuantity(line.quantity), remaining);
+    next.push({ ...line, quantity });
+    remaining -= quantity;
+  }
+  return next;
 }
 
 const initialState = {
@@ -938,22 +962,24 @@ function App() {
     if (!pendingOrderItem) return;
     const trimmed = typeof orderNotesDraft === "string" ? orderNotesDraft.trim() : "";
     const notes = trimmed.length > 0 ? trimmed : "No special request";
-    const dishName = pendingOrderItem.name;
-    setState((current) => ({
-      ...current,
-      cart: [
-        {
-          id: `cart-${Date.now()}`,
-          itemId: pendingOrderItem.id,
-          itemName: pendingOrderItem.name,
-          price: pendingOrderItem.price,
-          image: pendingOrderItem.image,
-          quantity: 1,
-          notes,
-        },
-        ...current.cart,
-      ],
-    }));
+    setState((current) => {
+      if (getCartQuantity(current.cart) >= MAX_ORDER_QUANTITY) return current;
+      return {
+        ...current,
+        cart: sanitizeCartLines([
+          {
+            id: `cart-${Date.now()}`,
+            itemId: pendingOrderItem.id,
+            itemName: pendingOrderItem.name,
+            price: pendingOrderItem.price,
+            image: pendingOrderItem.image,
+            quantity: 1,
+            notes,
+          },
+          ...current.cart,
+        ]),
+      };
+    });
     closeOrderNoteModal();
   }
 
@@ -965,7 +991,7 @@ function App() {
     }
     setState((current) => ({
       ...current,
-      cart: current.cart.map((line) => (line.id === lineId ? { ...line, quantity: q } : line)),
+      cart: sanitizeCartLines(current.cart.map((line) => (line.id === lineId ? { ...line, quantity: q } : line))),
     }));
   }
 
@@ -981,11 +1007,12 @@ function App() {
       return false;
     }
     const current = stateRef.current;
-    if (!current.cart.length) return false;
+    const cart = sanitizeCartLines(current.cart);
+    if (!cart.length) return false;
     const ts = Date.now();
     const placedById = authSession?.id ? authSession.id : GUEST_PLACED_BY_ID;
     const customerLabel = authSession?.username?.trim() || t("common.walkInGuest");
-    const newOrders = current.cart.map((line, i) => ({
+    const newOrders = cart.map((line, i) => ({
       id: `order-${ts}-${i}`,
       itemId: line.itemId,
       itemName: line.itemName,
@@ -1170,7 +1197,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      {!isSupabaseConfigured() ? (
+      {import.meta.env.DEV && !isSupabaseConfigured() ? (
         <div className="supabase-config-banner" role="status">
           <p>{t("app.supabaseBanner")}</p>
         </div>
@@ -1576,6 +1603,7 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
     () => cart.reduce((sum, line) => sum + Number(line.price) * Number(line.quantity || 1), 0),
     [cart],
   );
+  const totalItems = useMemo(() => getCartQuantity(cart), [cart]);
 
   async function handleCheckout() {
     if (!cart.length) return;
@@ -1641,6 +1669,7 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
                             className="cart-qty-button"
                             onClick={() => onUpdateQuantity(line.id, line.quantity + 1)}
                             aria-label={t("cart.incAria")}
+                            disabled={totalItems >= MAX_ORDER_QUANTITY}
                           >
                             +
                           </button>
@@ -1661,7 +1690,7 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
             <dl className="cart-summary-rows">
               <div className="cart-summary-row">
                 <dt>{t("cart.items")}</dt>
-                <dd>{cart.reduce((n, line) => n + Number(line.quantity || 1), 0)}</dd>
+                <dd>{totalItems}</dd>
               </div>
               <div className="cart-summary-row cart-summary-total">
                 <dt>{t("cart.total")}</dt>

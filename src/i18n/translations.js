@@ -69,7 +69,7 @@ const STR = {
   },
 
   "app.supabaseBanner": {
-    en: "Demo data is disabled until you configure Supabase environment variables (see .env.example).",
+    en: "Supabase environment variables are not configured.",
     zh: "请先配置 Supabase 环境变量（见 .env.example），否则无法加载演示数据。",
     es: "Los datos de demostración están desactivados hasta configurar Supabase (ver .env.example).",
   },
