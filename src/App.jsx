@@ -15,12 +15,27 @@ import {
 } from "react-router-dom";
 
 import {
-  getPersistedSession,
-  initialModeFromSession,
+  bootstrapAuthSession,
   login as authLogin,
   logout,
+  modeFromSession,
   registerCustomer,
+  subscribeAuth,
 } from "./services/authService.js";
+import { isSupabaseConfigured } from "./lib/supabaseClient.js";
+import {
+  deleteMenuItem as deleteMenuItemRemote,
+  fetchMenuWithReviews,
+  insertMenuItem,
+  updateMenuItem as updateMenuItemRemote,
+} from "./services/menuRepository.js";
+import { insertReview } from "./services/reviewsRepository.js";
+import {
+  fetchOrdersForSession,
+  insertOrders,
+  markOrderReady as markOrderReadyRemote,
+  updateOrderStatus as updateOrderStatusRemote,
+} from "./services/ordersRepository.js";
 import { useI18n } from "./i18n/I18nContext.jsx";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher.jsx";
 
@@ -306,10 +321,21 @@ const starterMenu = [
   },
 ];
 
+function loadPersistedCart() {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed.cart) ? parsed.cart : [];
+  } catch {
+    return [];
+  }
+}
+
 const initialState = {
-  menu: starterMenu.map((row) => normalizeMenuItemFromPersisted({ ...row })),
+  menu: [],
   orders: [],
-  cart: [],
+  cart: loadPersistedCart(),
 };
 
 /** Id for guest checkout or legacy orders missing placedById; logged-in users use session.id */
@@ -328,22 +354,6 @@ function filterOrdersForAccount(session, orders) {
     return orders.filter((o) => !o.placedById || o.placedById === GUEST_PLACED_BY_ID);
   }
   return orders.filter((o) => o.placedById === session.id);
-}
-
-function loadState() {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return initialState;
-    const parsed = JSON.parse(saved);
-    const rawOrders = Array.isArray(parsed.orders) ? parsed.orders : [];
-    return {
-      menu: (Array.isArray(parsed.menu) ? parsed.menu : initialState.menu).map(normalizeMenuItemFromPersisted),
-      orders: rawOrders.map(migrateOrderRow),
-      cart: Array.isArray(parsed.cart) ? parsed.cart : [],
-    };
-  } catch {
-    return initialState;
-  }
 }
 
 function formatPrice(value) {
@@ -721,13 +731,76 @@ function App() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mode, setMode] = useState(initialModeFromSession);
-  const [authSession, setAuthSession] = useState(() => getPersistedSession());
+  const stateRef = useRef(initialState);
+  const [authReady, setAuthReady] = useState(() => !isSupabaseConfigured());
+  const [dataReady, setDataReady] = useState(() => !isSupabaseConfigured());
+  const [mode, setMode] = useState("customer");
+  const [authSession, setAuthSession] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [state, setState] = useState(loadState);
+  const [state, setState] = useState(initialState);
   const [pendingOrderItem, setPendingOrderItem] = useState(null);
   const [orderNotesDraft, setOrderNotesDraft] = useState("");
   const [toasts, setToasts] = useState([]);
+
+  const pushToast = useCallback((message, variant = "success") => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [...prev.slice(-3), { id, message, variant }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((x) => x.id !== id));
+    }, TOAST_TTL_MS);
+  }, []);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    let cancelled = false;
+    (async () => {
+      const s = await bootstrapAuthSession();
+      if (cancelled) return;
+      setAuthSession(s);
+      setMode(modeFromSession(s));
+      setAuthReady(true);
+    })();
+    const { data } = subscribeAuth((s) => {
+      setAuthSession(s);
+      setMode(modeFromSession(s));
+    });
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    if (!authReady) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [menu, orders] = await Promise.all([
+          fetchMenuWithReviews(),
+          fetchOrdersForSession(authSession),
+        ]);
+        if (cancelled) return;
+        setState((prev) => ({
+          ...prev,
+          menu: menu.map(normalizeMenuItemFromPersisted),
+          orders: orders.map(migrateOrderRow),
+        }));
+      } catch (e) {
+        console.error(e);
+        pushToast(t("toast.dataLoadError"), "error");
+      } finally {
+        if (!cancelled) setDataReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, authSession?.id, authSession?.role, t, pushToast]);
 
   const modes = useMemo(
     () => [
@@ -738,16 +811,8 @@ function App() {
     [t],
   );
 
-  const pushToast = useCallback((message, variant = "success") => {
-    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setToasts((prev) => [...prev.slice(-3), { id, message, variant }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, TOAST_TTL_MS);
-  }, []);
-
   const dismissToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
   const handleLoginSuccess = useCallback((session) => {
@@ -757,25 +822,29 @@ function App() {
     else setMode("customer");
   }, []);
 
-  const handleLogout = useCallback(() => {
-    logout();
+  const handleLogout = useCallback(async () => {
+    await logout();
     setAuthSession(null);
     setMode("customer");
     pushToast(t("toast.logout"));
     navigate("/menu");
   }, [navigate, pushToast, t]);
 
-  const exitStaffOrOwnerForGuestBrowse = useCallback(() => {
+  const exitStaffOrOwnerForGuestBrowse = useCallback(async () => {
     if (authSession?.role === "staff" || authSession?.role === "owner") {
-      logout();
+      await logout();
       setAuthSession(null);
       pushToast(t("toast.exitStaffOwner"));
     }
   }, [authSession, pushToast, t]);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ cart: state.cart }));
+    } catch {
+      /* ignore */
+    }
+  }, [state.cart]);
 
   useEffect(() => {
     const path = location.pathname;
@@ -865,143 +934,182 @@ function App() {
     }));
   }
 
-  function checkoutCart() {
-    setState((current) => {
-      if (!current.cart.length) return current;
-      const ts = Date.now();
-      const placedById = authSession?.id ? authSession.id : GUEST_PLACED_BY_ID;
-      const customerLabel = authSession?.username?.trim() || "Walk-in Guest";
-      const newOrders = current.cart.map((line, i) => ({
-        id: `order-${ts}-${i}`,
-        itemId: line.itemId,
-        itemName: line.itemName,
-        price: line.price,
-        quantity: line.quantity,
-        customerName: customerLabel.trim() || "Walk-in Guest",
-        notes: line.notes,
-        status: "new",
-        ready: false,
-        createdAt: new Date().toISOString(),
-        placedById,
-      }));
-      return {
-        ...current,
-        orders: [...newOrders, ...current.orders],
+  async function checkoutCart() {
+    if (!isSupabaseConfigured()) {
+      pushToast(t("toast.supabaseMissing"), "error");
+      return false;
+    }
+    const current = stateRef.current;
+    if (!current.cart.length) return false;
+    const ts = Date.now();
+    const placedById = authSession?.id ? authSession.id : GUEST_PLACED_BY_ID;
+    const customerLabel = authSession?.username?.trim() || t("common.walkInGuest");
+    const newOrders = current.cart.map((line, i) => ({
+      id: `order-${ts}-${i}`,
+      itemId: line.itemId,
+      itemName: line.itemName,
+      price: line.price,
+      quantity: line.quantity,
+      customerName: customerLabel.trim() || t("common.walkInGuest"),
+      notes: line.notes,
+      status: "new",
+      ready: false,
+      createdAt: new Date().toISOString(),
+      placedById,
+    }));
+    try {
+      await insertOrders(newOrders);
+      const orders = await fetchOrdersForSession(authSession);
+      setState((c) => ({
+        ...c,
+        orders: orders.map(migrateOrderRow),
         cart: [],
-      };
-    });
+      }));
+      return true;
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.checkoutFailed"), "error");
+      return false;
+    }
   }
 
-  function updateOrderStatus(orderId, status) {
-    setState((current) => ({
-      ...current,
-      orders: current.orders.map((order) =>
-        order.id === orderId ? { ...order, status, ready: false } : order,
-      ),
-    }));
+  async function updateOrderStatus(orderId, status) {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await updateOrderStatusRemote(orderId, status);
+      const orders = await fetchOrdersForSession(authSession);
+      setState((c) => ({ ...c, orders: orders.map(migrateOrderRow) }));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.orderUpdateFailed"), "error");
+    }
   }
 
-  function markOrderReady(orderId) {
-    setState((current) => ({
-      ...current,
-      orders: current.orders.map((order) =>
-        order.id === orderId ? { ...order, ready: true } : order,
-      ),
-    }));
+  async function markOrderReady(orderId) {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await markOrderReadyRemote(orderId);
+      const orders = await fetchOrdersForSession(authSession);
+      setState((c) => ({ ...c, orders: orders.map(migrateOrderRow) }));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.orderUpdateFailed"), "error");
+    }
   }
 
-  function addReview(itemId, review) {
-    setState((current) => ({
-      ...current,
-      menu: current.menu.map((item) =>
-        item.id === itemId
-          ? { ...item, reviews: [{ id: `review-${Date.now()}`, ...review }, ...item.reviews] }
-          : item,
-      ),
-    }));
-    pushToast(t("toast.reviewPosted"));
+  async function addReview(itemId, review) {
+    if (!isSupabaseConfigured() || !authSession?.id) return;
+    try {
+      await insertReview(itemId, review, authSession.id);
+      const menu = await fetchMenuWithReviews();
+      setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+      pushToast(t("toast.reviewPosted"));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.reviewFailed"), "error");
+    }
   }
 
-  function addMenuItem(item) {
+  async function addMenuItem(item) {
+    if (!isSupabaseConfigured()) return;
     const manualBadges = sanitizeManualBadges(item.manualBadges);
     const now = new Date().toISOString();
-    setState((current) => ({
-      ...current,
-      menu: [
-        {
-          name: item.name,
-          price: item.price,
-          category: item.category,
-          description: item.description,
-          image: item.image || "/assets/diner-burger.png",
-          id: `dish-${Date.now()}`,
-          popularity: Number(item.popularity) || 70,
-          available: item.available !== false,
-          reviews: Array.isArray(item.reviews) ? item.reviews : [],
-          manualBadges,
-          menuAddedAt: typeof item.menuAddedAt === "string" && item.menuAddedAt ? item.menuAddedAt : now,
-        },
-        ...current.menu,
-      ],
-    }));
-  }
-
-  function addMenuItemsBatch(items) {
-    if (!items.length) return;
-    const ts = Date.now();
-    const now = new Date().toISOString();
-    setState((current) => {
-      const newRows = items.map((item, i) => ({
+    const id = `dish-${Date.now()}`;
+    try {
+      await insertMenuItem({
+        id,
         name: item.name,
         price: item.price,
         category: item.category,
         description: item.description,
         image: item.image || "/assets/diner-burger.png",
-        id: `dish-${ts}-${i}`,
         popularity: Number(item.popularity) || 70,
-        available: true,
-        reviews: [],
-        manualBadges: sanitizeManualBadges(item.manualBadges),
+        available: item.available !== false,
+        manualBadges,
         menuAddedAt: typeof item.menuAddedAt === "string" && item.menuAddedAt ? item.menuAddedAt : now,
-      }));
-      return { ...current, menu: [...newRows.reverse(), ...current.menu] };
-    });
+      });
+      const menu = await fetchMenuWithReviews();
+      setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.menuSaveFailed"), "error");
+    }
   }
 
-  function updateMenuItem(itemId, patch) {
-    setState((current) => ({
-      ...current,
-      menu: current.menu.map((menuItem) => {
-        if (menuItem.id !== itemId) return menuItem;
-        const next = { ...menuItem, ...patch, id: menuItem.id };
-        delete next.badge;
-        if (patch.manualBadges !== undefined) {
-          next.manualBadges = sanitizeManualBadges(patch.manualBadges);
-        }
-        return next;
-      }),
-    }));
+  async function addMenuItemsBatch(items) {
+    if (!items.length || !isSupabaseConfigured()) return;
+    const ts = Date.now();
+    const now = new Date().toISOString();
+    try {
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        await insertMenuItem({
+          id: `dish-${ts}-${i}`,
+          name: item.name,
+          price: item.price,
+          category: item.category,
+          description: item.description,
+          image: item.image || "/assets/diner-burger.png",
+          popularity: Number(item.popularity) || 70,
+          available: true,
+          manualBadges: sanitizeManualBadges(item.manualBadges),
+          menuAddedAt: typeof item.menuAddedAt === "string" && item.menuAddedAt ? item.menuAddedAt : now,
+        });
+      }
+      const menu = await fetchMenuWithReviews();
+      setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.menuSaveFailed"), "error");
+    }
   }
 
-  function deleteMenuItem(itemId) {
-    setState((current) => ({
-      ...current,
-      menu: current.menu.filter((menuItem) => menuItem.id !== itemId),
-    }));
+  async function updateMenuItem(itemId, patch) {
+    if (!isSupabaseConfigured()) return;
+    const cleanPatch = { ...patch };
+    delete cleanPatch.badge;
+    if (cleanPatch.manualBadges !== undefined) {
+      cleanPatch.manualBadges = sanitizeManualBadges(cleanPatch.manualBadges);
+    }
+    try {
+      await updateMenuItemRemote(itemId, cleanPatch);
+      const menu = await fetchMenuWithReviews();
+      setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.menuSaveFailed"), "error");
+    }
   }
 
-  function toggleMenuItemAvailable(itemId) {
-    setState((current) => ({
-      ...current,
-      menu: current.menu.map((menuItem) =>
-        menuItem.id === itemId ? { ...menuItem, available: menuItem.available === false } : menuItem,
-      ),
-    }));
+  async function deleteMenuItem(itemId) {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await deleteMenuItemRemote(itemId);
+      const menu = await fetchMenuWithReviews();
+      setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.menuSaveFailed"), "error");
+    }
   }
 
-  function selectMode(item) {
+  async function toggleMenuItemAvailable(itemId) {
+    if (!isSupabaseConfigured()) return;
+    const row = stateRef.current.menu.find((m) => m.id === itemId);
+    const nextAvailable = row?.available === false;
+    try {
+      await updateMenuItemRemote(itemId, { available: nextAvailable });
+      const menu = await fetchMenuWithReviews();
+      setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+    } catch (e) {
+      console.error(e);
+      pushToast(t("toast.menuSaveFailed"), "error");
+    }
+  }
+
+  async function selectMode(item) {
     if (authSession && item.id !== mode) {
-      logout();
+      await logout();
       setAuthSession(null);
     }
 
@@ -1012,7 +1120,7 @@ function App() {
     }
     if (item.id === "staff") {
       setMode("staff");
-      if (getPersistedSession()?.role === "staff") {
+      if (authSession?.role === "staff") {
         navigate("/orders");
         return;
       }
@@ -1021,7 +1129,7 @@ function App() {
     }
     if (item.id === "owner") {
       setMode("owner");
-      if (getPersistedSession()?.role === "owner") {
+      if (authSession?.role === "owner") {
         navigate("/owner");
         return;
       }
@@ -1031,6 +1139,16 @@ function App() {
 
   return (
     <div className="app-shell">
+      {!isSupabaseConfigured() ? (
+        <div className="supabase-config-banner" role="status">
+          <p>{t("app.supabaseBanner")}</p>
+        </div>
+      ) : null}
+      {isSupabaseConfigured() && (!authReady || !dataReady) ? (
+        <div className="app-loading-overlay" role="status" aria-live="polite">
+          <p className="app-loading-overlay-text">{t("app.dataLoading")}</p>
+        </div>
+      ) : null}
       <header className="site-header">
         <Link className="brand" to="/" aria-label={t("header.brandAria")}>
           <span className="brand-mark">T</span>
@@ -1417,11 +1535,12 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckout
     [cart],
   );
 
-  function handleCheckout() {
+  async function handleCheckout() {
     if (!cart.length) return;
     const qty = cart.reduce((sum, line) => sum + Number(line.quantity || 1), 0);
     const lines = cart.length;
-    onCheckout();
+    const ok = await onCheckout();
+    if (!ok) return;
     onCheckoutSuccess?.({ qty, lines });
     navigate("/orders");
   }

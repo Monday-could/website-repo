@@ -2785,24 +2785,26 @@ a.drawer-link.active {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
+.supabase-config-banner {
+  background: #3d1f1f;
+  color: #fff;
+  padding: 0.65rem 1rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
 
-  .food-card,
-  .food-card:hover,
-  .toast,
-  .order-modal,
-  .order-modal-backdrop {
-    animation: none !important;
-    transition: none !important;
-  }
+.app-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.88);
+  pointer-events: all;
+}
 
-  .food-card:hover,
-  .order-button:hover,
-  .primary-cta:hover,
-  .mode-menu-button:hover {
-    transform: none;
-  }
+.app-loading-overlay-text {
+  font-size: 1.1rem;
+  font-weight: 600;
 }

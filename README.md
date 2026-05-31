@@ -1,6 +1,14 @@
 # Tom's Mysterious Restaurant — Web App
 
-A **Vite + React** single-page app for a fictional diner: guests browse the menu and place orders, staff handle kitchen tickets, and owners manage the menu. Data and authentication are **demo-only** (stored in the browser via `localStorage`); there is no backend in this repository.
+A **Vite + React** single-page app for a fictional diner: guests browse the menu and place orders, staff handle kitchen tickets, and owners manage the menu. **Menu, reviews, orders, and authentication** are backed by **Supabase** (Postgres + Auth + Storage). Only the **shopping cart** is persisted in the browser (`localStorage`).
+
+## Supabase setup
+
+1. Copy `.env.example` to `.env` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.  
+2. Apply SQL migrations under `supabase/migrations/` (CLI `supabase db push` or Dashboard SQL).  
+3. Seed Auth users and `profiles.role` for staff/owner — see **[docs/SUPABASE.md](docs/SUPABASE.md)**.
+
+Without `.env`, the app still builds but shows a banner and does not load menu or orders.
 
 ## Features
 
@@ -9,19 +17,19 @@ A **Vite + React** single-page app for a fictional diner: guests browse the menu
 - **Home** — Hero section, popular dishes carousel (sales-based ranking), and a short personal order history.
 - **Full menu** — Category and badge filters, dish cards with pricing, badges (e.g. popular / seasonal), and **star reviews** (read for everyone; **write** requires a signed-in account).
 - **Cart & checkout** — Line items with notes and quantities; checkout creates kitchen-style tickets.
-- **Order board** (`/orders`) — Customers see **their own** recent tickets; history is scoped by account (including guest vs logged-in).
+- **Order board** (`/orders`) — Customers see **their own** recent tickets; staff/owner see the full board. Guests who check out without signing in cannot see ticket history in **Profile** (orders use `placed_by_id = guest` for kitchen only).
 - **Profile** — Account summary and a compact order history with a link to the full order list.
 - **Location** — Static informational page.
 
 ### Staff mode
 
-- Preset demo account: **`worker` / `imworker`**.
+- After Supabase seed: sign in as **`worker`** (maps to `worker@diner-desk.local`) / **`imworker`** — see [docs/SUPABASE.md](docs/SUPABASE.md).
 - **Staff order desk** (`/orders`) — Accept or decline new tickets, mark orders ready, with separate queues for pending and handled items.
 - Header shortcuts and **mode** switching (customer / staff / owner) with role-aware navigation.
 
 ### Owner mode
 
-- Preset demo account: **`boss` / `imboss`**.
+- After Supabase seed: **`boss`** / **`imboss`** with `profiles.role = owner`.
 - **Owner shell** (`/owner`) — Add dishes (including image URL or local upload preview), queue preview rows, submit batches to the menu, and edit or hide dishes.
 - Owner-only routes are protected by role.
 
@@ -38,7 +46,7 @@ A **Vite + React** single-page app for a fictional diner: guests browse the menu
 | Build        | Vite 7                          |
 | UI           | React 19, React Router 6        |
 | Styling      | Plain CSS (`src/styles.css`)    |
-| State / demo | React state + `localStorage`    |
+| State / data | React state; **cart** in `localStorage`; menu/reviews/orders via **Supabase** |
 
 ## Getting started
 
@@ -63,7 +71,7 @@ Then open the URL shown in the terminal (default dev server: `http://127.0.0.1:5
 | -------- | -------- | ---------- |
 | Staff    | `worker` | `imworker` |
 | Owner    | `boss`   | `imboss`   |
-| Customer | Register a new account from the UI (stored locally). |
+| Customer | Register in the UI (Supabase Auth); short names become `name@diner-desk.local`. |
 
 Reserved usernames cannot be used for self-registration (`worker`, `boss`, etc.).
 
@@ -71,11 +79,7 @@ Reserved usernames cannot be used for self-registration (`worker`, `boss`, etc.)
 
 - Output is a **static site** after `npm run build`; host `dist/` on any static host (Netlify, Vercel, S3, etc.).
 - Configure the host for **SPA fallback** so deep links (e.g. `/menu`, `/owner/add`) resolve to `index.html`.
-
-## Roadmap ideas
-
-- Replace `localStorage` with a real API and database (e.g. Supabase).
-- Move secrets and auth to the server; keep only public keys in the client.
+- Set **`VITE_SUPABASE_URL`** and **`VITE_SUPABASE_ANON_KEY`** in the build environment so the production bundle can reach your Supabase project.
 
 ## License
 

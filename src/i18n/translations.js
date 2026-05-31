@@ -71,6 +71,43 @@ const STR = {
     zh: "订单已提交 — 共 {qty} 件商品，{lines} 行小票。",
     es: "Pedido enviado — {qty} artículo(s) en {lines} línea(s) de ticket.",
   },
+  "toast.dataLoadError": {
+    en: "Could not load menu or orders from the server.",
+    zh: "无法从服务器加载菜单或订单。",
+    es: "No se pudo cargar el menú o los pedidos.",
+  },
+  "toast.supabaseMissing": {
+    en: "Supabase is not configured — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.",
+    zh: "未配置 Supabase：请在 .env 中填写 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。",
+    es: "Supabase no está configurado: añade VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en .env.",
+  },
+  "toast.checkoutFailed": {
+    en: "Checkout failed — please try again.",
+    zh: "结账失败，请重试。",
+    es: "El pago del pedido falló — inténtalo de nuevo.",
+  },
+  "toast.orderUpdateFailed": {
+    en: "Could not update that order.",
+    zh: "无法更新该订单。",
+    es: "No se pudo actualizar el pedido.",
+  },
+  "toast.reviewFailed": {
+    en: "Could not post your review.",
+    zh: "无法提交评价。",
+    es: "No se pudo publicar tu reseña.",
+  },
+  "toast.menuSaveFailed": {
+    en: "Could not save menu changes.",
+    zh: "无法保存菜单更改。",
+    es: "No se pudieron guardar los cambios del menú.",
+  },
+
+  "app.supabaseBanner": {
+    en: "Demo data is disabled until you configure Supabase environment variables (see .env.example).",
+    zh: "请先配置 Supabase 环境变量（见 .env.example），否则无法加载演示数据。",
+    es: "Los datos de demostración están desactivados hasta configurar Supabase (ver .env.example).",
+  },
+  "app.dataLoading": { en: "Loading…", zh: "加载中…", es: "Cargando…" },
 
   "mode.customer": { en: "Customer mode", zh: "顾客模式", es: "Modo cliente" },
   "mode.staff": { en: "Staff mode", zh: "员工模式", es: "Modo personal" },
@@ -435,14 +472,14 @@ const STR = {
   "auth.login.title": { en: "Log in", zh: "登录", es: "Iniciar sesión" },
   "auth.login.eyebrow": { en: "Account", zh: "账号", es: "Cuenta" },
   "auth.login.hintStaff": {
-    en: "Staff mode: sign in with the preset account worker / imworker.",
-    zh: "员工模式：请使用预留账号 worker / imworker 登录。",
-    es: "Modo personal: usa la cuenta worker / imworker.",
+    en: "Staff: create user worker@diner-desk.local in Supabase Auth (password imworker), set profiles.role = staff, then sign in as worker or full email.",
+    zh: "员工：在 Supabase Auth 创建 worker@diner-desk.local（密码 imworker），将 profiles.role 设为 staff，然后用户名填 worker 或完整邮箱登录。",
+    es: "Personal: crea worker@diner-desk.local en Supabase Auth (imworker), pon profiles.role = staff, e inicia como worker o email completo.",
   },
   "auth.login.hintOwner": {
-    en: "Owner mode: sign in with the preset account boss / imboss.",
-    zh: "老板模式：请使用预留账号 boss / imboss 登录。",
-    es: "Modo dueño: usa la cuenta boss / imboss.",
+    en: "Owner: create boss@diner-desk.local (password imboss), set profiles.role = owner, then sign in as boss or full email.",
+    zh: "老板：创建 boss@diner-desk.local（密码 imboss），将 profiles.role 设为 owner，然后用户名填 boss 或完整邮箱登录。",
+    es: "Dueño: crea boss@diner-desk.local (imboss), pon profiles.role = owner, e inicia como boss o email completo.",
   },
   "auth.login.hintCustomer": {
     en: "Customers can register and sign in, or continue browsing the menu and cart as a guest.",
@@ -459,9 +496,9 @@ const STR = {
   "auth.register.title": { en: "Customer registration", zh: "顾客注册", es: "Registro de cliente" },
   "auth.register.eyebrow": { en: "Account", zh: "账号", es: "Cuenta" },
   "auth.register.hint": {
-    en: "Creates a customer account only. Data stays in this browser until you connect a database.",
-    zh: "仅创建顾客账号。接入数据库前，信息保存在本机浏览器中。",
-    es: "Solo cuenta de cliente. Los datos quedan en el navegador hasta conectar una base de datos.",
+    en: "Creates a customer account with Supabase Auth. Use an email or a short name (we append @diner-desk.local).",
+    zh: "使用 Supabase Auth 创建顾客账号。可填邮箱或短用户名（会自动加上 @diner-desk.local）。",
+    es: "Crea una cuenta de cliente con Supabase Auth. Usa un correo o un nombre corto (añadimos @diner-desk.local).",
   },
   "auth.register.password2": { en: "Confirm password", zh: "确认密码", es: "Confirmar contraseña" },
   "auth.register.submit": { en: "Register & sign in", zh: "注册并登录", es: "Registrar e iniciar sesión" },
@@ -481,6 +518,16 @@ const STR = {
   "auth.error.REG_PASSWORD_MISMATCH": { en: "Passwords do not match.", zh: "两次输入的密码不一致。", es: "Las contraseñas no coinciden." },
   "auth.error.LOGIN_FAILED": { en: "Sign-in failed.", zh: "登录失败。", es: "Error al iniciar sesión." },
   "auth.error.REGISTER_FAILED": { en: "Registration failed.", zh: "注册失败。", es: "Error al registrarse." },
+  "auth.error.REG_CONFIRM_EMAIL": {
+    en: "Check your email to confirm the account before signing in.",
+    zh: "请先查收邮件并确认账号后再登录。",
+    es: "Revisa tu correo para confirmar la cuenta antes de iniciar sesión.",
+  },
+  "auth.error.SUPABASE_NOT_CONFIGURED": {
+    en: "This demo needs Supabase keys in .env (see .env.example).",
+    zh: "演示需要在 .env 中配置 Supabase（见 .env.example）。",
+    es: "La demo necesita claves de Supabase en .env (ver .env.example).",
+  },
 
   "common.guest": { en: "Guest", zh: "游客", es: "Invitado" },
   "common.walkInGuest": { en: "Walk-in Guest", zh: "到店顾客", es: "Cliente sin reserva" },
