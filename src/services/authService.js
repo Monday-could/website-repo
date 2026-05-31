@@ -3,7 +3,26 @@
  * Browser uses anon key + JWT only (no service_role).
  */
 
-import { getSupabase } from "../lib/supabaseClient.js";
+import { getSupabase, getSupabaseRestConfig } from "../lib/supabaseClient.js";
+import { withTimeout } from "../lib/withTimeout.js";
+
+/** Prevent the login/register button from spinning forever if the network or Supabase hangs. */
+const AUTH_OPERATION_TIMEOUT_MS = 10_000;
+const PROFILE_RETRY_DELAYS_MS = [0, 250, 750, 1500];
+
+/**
+ * @template T
+ * @param {Promise<T>} promise
+ * @param {string} label
+ */
+async function authWithTimeout(promise, label) {
+  try {
+    return await withTimeout(promise, AUTH_OPERATION_TIMEOUT_MS, label);
+  } catch (e) {
+    if (e && e.code === "TIMEOUT") throw authError("AUTH_TIMEOUT");
+    throw e;
+  }
+}
 
 /**
  * Synthetic email domain when the login/register field has no `@`.
@@ -44,27 +63,90 @@ function registerEmailFromUsername(raw) {
   return `${part}@${AUTH_EMAIL_DOMAIN}`;
 }
 
-/** @param {import('@supabase/supabase-js').Session | null} session @param {AbortSignal} [signal] */
-async function sessionToAppSession(session, signal) {
-  if (!session?.user?.id) return null;
-  const sb = getSupabase();
-  if (!sb) return null;
+function delay(ms, signal) {
+  if (!ms) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const tid = window.setTimeout(resolve, ms);
+    if (!signal) return;
+    signal.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(tid);
+        reject(Object.assign(new Error("Aborted"), { name: "AbortError" }));
+      },
+      { once: true },
+    );
+  });
+}
 
-  let q = sb.from("profiles").select("username, display_name, role").eq("id", session.user.id);
-  if (signal) q = q.abortSignal(signal);
-  const { data: profile, error } = await q.maybeSingle();
-
-  if (error) return null;
-  if (!profile) return null;
-
-  const role = profile.role;
-  if (role !== "customer" && role !== "staff" && role !== "owner") return null;
-
+function fallbackCustomerSession(session) {
+  const meta = session?.user?.user_metadata || {};
+  const emailName = String(session?.user?.email || "").split("@")[0] || "Guest";
   return {
     id: session.user.id,
-    username: profile.display_name || profile.username,
-    role,
+    username: meta.display_name || meta.username || emailName,
+    role: "customer",
   };
+}
+
+async function fetchProfileRest(session, signal) {
+  const cfg = getSupabaseRestConfig();
+  if (!cfg || !session?.access_token) return null;
+
+  const url = `${cfg.url}/rest/v1/profiles?select=username,display_name,role&id=eq.${encodeURIComponent(
+    session.user.id,
+  )}&limit=1`;
+  const response = await fetch(url, {
+    headers: {
+      apikey: cfg.anonKey,
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    signal,
+  });
+  if (!response.ok) {
+    const err = new Error(`profiles lookup failed with ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+/**
+ * @param {import('@supabase/supabase-js').Session | null} session
+ * @param {AbortSignal} [signal]
+ * @param {{ retryProfile?: boolean, allowCustomerFallback?: boolean }} [options]
+ */
+async function sessionToAppSession(session, signal, options = {}) {
+  if (!session?.user?.id) return null;
+  const delays = options.retryProfile ? PROFILE_RETRY_DELAYS_MS : [0];
+  let lastError = null;
+
+  for (const waitMs of delays) {
+    try {
+      await delay(waitMs, signal);
+      const profile = await fetchProfileRest(session, signal);
+      if (!profile) continue;
+
+      const role = profile.role;
+      if (role !== "customer" && role !== "staff" && role !== "owner") return null;
+
+      return {
+        id: session.user.id,
+        username: profile.display_name || profile.username,
+        role,
+      };
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      lastError = e;
+    }
+  }
+
+  if (import.meta.env.DEV && lastError) {
+    console.warn("[auth] profiles lookup failed; using auth session fallback when allowed:", lastError);
+  }
+
+  return options.allowCustomerFallback ? fallbackCustomerSession(session) : null;
 }
 
 /** @param {AbortSignal} [signal] reserved for callers that need to cancel the profiles query */
@@ -85,8 +167,34 @@ export function subscribeAuth(onSession) {
   if (!sb) {
     return { data: { subscription: { unsubscribe() {} } } };
   }
-  return sb.auth.onAuthStateChange(async (_event, session) => {
-    onSession(await sessionToAppSession(session));
+  let version = 0;
+  return sb.auth.onAuthStateChange((_event, session) => {
+    version += 1;
+    const currentVersion = version;
+
+    if (!session) {
+      onSession(null);
+      return;
+    }
+
+    window.setTimeout(async () => {
+      try {
+        const appSession = await sessionToAppSession(session, undefined, {
+          retryProfile: true,
+          allowCustomerFallback: true,
+        });
+        if (currentVersion === version) {
+          onSession(appSession);
+        }
+      } catch (e) {
+        if (import.meta.env.DEV) {
+          console.warn("[auth] async session refresh failed; using auth fallback:", e);
+        }
+        if (currentVersion === version) {
+          onSession(fallbackCustomerSession(session));
+        }
+      }
+    }, 0);
   });
 }
 
@@ -122,7 +230,10 @@ export async function login({ username, password }) {
     }
   }
 
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  const { data, error } = await authWithTimeout(
+    sb.auth.signInWithPassword({ email, password }),
+    "signInWithPassword",
+  );
   if (error) {
     if (error.message?.toLowerCase().includes("invalid login")) {
       throw authError("AUTH_BAD_CREDENTIALS");
@@ -130,9 +241,8 @@ export async function login({ username, password }) {
     throw authError("LOGIN_FAILED");
   }
 
-  const session = await sessionToAppSession(data.session);
-  if (!session) throw authError("LOGIN_FAILED");
-  return session;
+  if (!data.session) throw authError("LOGIN_FAILED");
+  return fallbackCustomerSession(data.session);
 }
 
 /**
@@ -158,13 +268,16 @@ export async function registerCustomer({ username, password }) {
 
   const display = u.includes("@") ? email.split("@")[0] : u;
 
-  const { data, error } = await sb.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { username: display, display_name: display },
-    },
-  });
+  const { data, error } = await authWithTimeout(
+    sb.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { username: display, display_name: display },
+      },
+    }),
+    "signUp",
+  );
 
   if (error) {
     if (error.message?.toLowerCase().includes("already registered")) {
@@ -177,9 +290,7 @@ export async function registerCustomer({ username, password }) {
     throw authError("REG_CONFIRM_EMAIL");
   }
 
-  const session = await sessionToAppSession(data.session);
-  if (!session) throw authError("REGISTER_FAILED");
-  return session;
+  return fallbackCustomerSession(data.session);
 }
 
 export async function logout() {

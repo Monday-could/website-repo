@@ -66,6 +66,8 @@ On the login screen you can enter **`worker` / `boss`** (the app appends `@` + `
 | Customer (signed in) | Same as above        | Read all; insert own reviews     | Insert/read own rows (`placed_by_id = auth.uid()`)                       |
 | Staff / owner     | Read all                  | Read all; owner may edit/delete others | Read all; update status / ready flags                          |
 
+If you previously applied `20250601140000_orders_select_live_board.sql` and want the database to match the SPA again, apply `20250601150000_revoke_orders_anon_select.sql` (drops that policy and revokes `anon` SELECT on `orders`).
+
 ## MCP / Cursor
 
 Good fit: having the assistant **edit migration SQL and frontend code**. **Applying migrations**, **creating Auth users**, and **changing roles** should stay with you (Dashboard or local CLI) so high-privilege keys are not handed to the toolchain.
@@ -73,3 +75,10 @@ Good fit: having the assistant **edit migration SQL and frontend code**. **Apply
 ## Customer signup and email
 
 Registration without `@` maps to `username@` + the configured synthetic domain (same as login). If **email confirmation** is enabled for the project, the user may need to confirm before a session exists; the UI surfaces `REG_CONFIRM_EMAIL`.
+
+## Authentication → Users list (dashboard)
+
+- New customers are stored as **Auth users** with email `yourname@` + `AUTH_EMAIL_DOMAIN` (see `authService.js`, default **`monday.com`**). Example: username `monday` → **`monday@monday.com`**. Search the Users table by that **full email**, not only the short name.
+- The dashboard often shows **“Total: N users”** with only a **single page** of rows. Use **pagination**, **sort**, or the **search** field to find a specific account; it is easy to assume a user “was not created” when they are simply off the first page.
+- **`public.profiles`** is filled by the trigger `on_auth_user_created` → `handle_new_user()` in `supabase/migrations/20250530120000_init_schema.sql`. Each Auth user must have **one** profile row whose **`id` equals `auth.users.id`**. If you **manually inserted** a `profiles` row with username `monday` that belongs to a **different** UUID than the Auth user for `monday@monday.com`, signup for that email can fail (e.g. unique username) or login can succeed in Auth but **fail in the app** when loading the profile for the signed-in id.
+- If login or register spins for a long time, open the browser **Network** tab: stalled `token` or `profiles` requests usually indicate network, paused project, or wrong `VITE_SUPABASE_URL` / keys. Long auth calls **time out** and the login/register form shows **`AUTH_TIMEOUT`** (no toast).

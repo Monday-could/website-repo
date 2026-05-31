@@ -357,15 +357,6 @@ function migrateOrderRow(order) {
   return { ...order, placedById: GUEST_PLACED_BY_ID };
 }
 
-/** Orders visible to the current viewer ("my tickets"); use full `orders` for staff kitchen, etc. */
-function filterOrdersForAccount(session, orders) {
-  if (!Array.isArray(orders)) return [];
-  if (!session) {
-    return orders.filter((o) => !o.placedById || o.placedById === GUEST_PLACED_BY_ID);
-  }
-  return orders.filter((o) => o.placedById === session.id);
-}
-
 function formatPrice(value) {
   return `$${Number(value).toFixed(2)}`;
 }
@@ -530,7 +521,7 @@ function ToastStack({ toasts, onDismiss }) {
   return (
     <div className="toast-stack" role="region" aria-label={t("common.notifications")} aria-live="polite">
       {toasts.map((toast) => (
-        <div key={toast.id} className={`toast toast--${toast.variant || "success"}`} role="status">
+        <div key={toast.id} className={`toast toast--${toast.variant || "error"}`} role="alert">
           <p className="toast-message">{toast.message}</p>
           <button type="button" className="toast-dismiss" aria-label={t("common.dismissNotification")} onClick={() => onDismiss(toast.id)}>
             <Icon name="x" />
@@ -566,11 +557,12 @@ function RequireRole({ session, role, children }) {
   return children;
 }
 
-function LoginPage({ onLoginSuccess, pushToast }) {
+function LoginPage({ onLoginSuccess }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = sanitizeReturnToParam(searchParams.get("returnTo"));
+  const profileNotice = searchParams.get("notice") === "profile";
   const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -584,7 +576,6 @@ function LoginPage({ onLoginSuccess, pushToast }) {
     try {
       const session = await authLogin({ username, password });
       onLoginSuccess(session);
-      pushToast(t("toast.welcome", { name: session.username }));
       if (session.role === "staff") navigate("/orders", { replace: true });
       else if (session.role === "owner") navigate("/owner", { replace: true });
       else if (returnTo) navigate(returnTo, { replace: true });
@@ -602,6 +593,11 @@ function LoginPage({ onLoginSuccess, pushToast }) {
       <div className="section-heading">
         <p className="eyebrow">{t("auth.login.eyebrow")}</p>
         <h2 id="login-title">{t("auth.login.title")}</h2>
+        {profileNotice ? (
+          <p className="auth-hint" role="status">
+            {t("auth.login.noticeProfile")}
+          </p>
+        ) : null}
       </div>
       <form className="auth-form" onSubmit={handleSubmit}>
         {error ? (
@@ -641,7 +637,7 @@ function LoginPage({ onLoginSuccess, pushToast }) {
   );
 }
 
-function RegisterPage({ onLoginSuccess, pushToast }) {
+function RegisterPage({ onLoginSuccess }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -664,7 +660,6 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
     try {
       const session = await registerCustomer({ username, password });
       onLoginSuccess(session);
-      pushToast(t("toast.registerOk"));
       navigate(returnTo || "/menu", { replace: true });
     } catch (err) {
       const code = err?.code;
@@ -743,9 +738,10 @@ function App() {
   const [orderNotesDraft, setOrderNotesDraft] = useState("");
   const [toasts, setToasts] = useState([]);
 
-  const pushToast = useCallback((message, variant = "success") => {
+  /** Toasts: only initial menu / orders load failures from the server. */
+  const enqueueLoadErrorToast = useCallback((message) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setToasts((prev) => [...prev.slice(-3), { id, message, variant }]);
+    setToasts((prev) => [...prev.slice(-3), { id, message, variant: "error" }]);
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((x) => x.id !== id));
     }, TOAST_TTL_MS);
@@ -803,9 +799,9 @@ function App() {
         } else {
           console.error(e);
           if (e?.code === "TIMEOUT") {
-            pushToast(t("toast.dataLoadTimeout"), "error");
+            enqueueLoadErrorToast(t("toast.dataLoadTimeout"));
           } else {
-            pushToast(t("toast.dataLoadError"), "error");
+            enqueueLoadErrorToast(t("toast.dataLoadError"));
           }
         }
       } finally {
@@ -816,7 +812,7 @@ function App() {
       cancelled = true;
       abortController.abort();
     };
-  }, [t, pushToast]);
+  }, [t, enqueueLoadErrorToast]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -840,9 +836,9 @@ function App() {
         if (isAbortLikeError(e)) return;
         console.error(e);
         if (e?.code === "TIMEOUT") {
-          pushToast(t("toast.dataLoadTimeout"), "error");
+          enqueueLoadErrorToast(t("toast.dataLoadTimeout"));
         } else {
-          pushToast(t("toast.dataLoadError"), "error");
+          enqueueLoadErrorToast(t("toast.dataLoadError"));
         }
       }
     })();
@@ -850,7 +846,7 @@ function App() {
       cancelled = true;
       abortController.abort();
     };
-  }, [authSession?.id, authSession?.role, t, pushToast]);
+  }, [authSession?.id, authSession?.role, t, enqueueLoadErrorToast]);
 
   const modes = useMemo(
     () => [
@@ -876,17 +872,15 @@ function App() {
     await logout();
     setAuthSession(null);
     setMode("customer");
-    pushToast(t("toast.logout"));
     navigate("/menu");
-  }, [navigate, pushToast, t]);
+  }, [navigate]);
 
   const exitStaffOrOwnerForGuestBrowse = useCallback(async () => {
     if (authSession?.role === "staff" || authSession?.role === "owner") {
       await logout();
       setAuthSession(null);
-      pushToast(t("toast.exitStaffOwner"));
     }
-  }, [authSession, pushToast, t]);
+  }, [authSession]);
 
   useEffect(() => {
     try {
@@ -962,7 +956,6 @@ function App() {
       ],
     }));
     closeOrderNoteModal();
-    pushToast(t("toast.addCart", { dish: dishName }));
   }
 
   function updateCartLineQuantity(lineId, newQuantity) {
@@ -986,7 +979,6 @@ function App() {
 
   async function checkoutCart() {
     if (!isSupabaseConfigured()) {
-      pushToast(t("toast.supabaseMissing"), "error");
       return false;
     }
     const current = stateRef.current;
@@ -1018,7 +1010,6 @@ function App() {
       return true;
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.checkoutFailed"), "error");
       return false;
     }
   }
@@ -1031,7 +1022,6 @@ function App() {
       setState((c) => ({ ...c, orders: orders.map(migrateOrderRow) }));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.orderUpdateFailed"), "error");
     }
   }
 
@@ -1043,7 +1033,6 @@ function App() {
       setState((c) => ({ ...c, orders: orders.map(migrateOrderRow) }));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.orderUpdateFailed"), "error");
     }
   }
 
@@ -1053,10 +1042,8 @@ function App() {
       await insertReview(itemId, review, authSession.id);
       const menu = await fetchMenuWithReviews();
       setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
-      pushToast(t("toast.reviewPosted"));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.reviewFailed"), "error");
     }
   }
 
@@ -1082,7 +1069,6 @@ function App() {
       setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.menuSaveFailed"), "error");
     }
   }
 
@@ -1110,7 +1096,6 @@ function App() {
       setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.menuSaveFailed"), "error");
     }
   }
 
@@ -1127,7 +1112,6 @@ function App() {
       setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.menuSaveFailed"), "error");
     }
   }
 
@@ -1139,7 +1123,6 @@ function App() {
       setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.menuSaveFailed"), "error");
     }
   }
 
@@ -1153,7 +1136,6 @@ function App() {
       setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
     } catch (e) {
       console.error(e);
-      pushToast(t("toast.menuSaveFailed"), "error");
     }
   }
 
@@ -1257,7 +1239,13 @@ function App() {
             className="icon-button"
             type="button"
             aria-label={t("header.profileAria")}
-            onClick={() => navigate("/profile")}
+            onClick={() => {
+              if (!authSession) {
+                navigate("/login?notice=profile");
+                return;
+              }
+              navigate("/profile");
+            }}
           >
             <Icon name="user" />
           </button>
@@ -1423,7 +1411,7 @@ function App() {
           <Route
             path="/"
             element={
-              <HomePage menu={state.menu} orders={state.orders} session={authSession} onOrder={openOrderNoteModal} />
+              <HomePage menu={state.menu} orders={state.orders} onOrder={openOrderNoteModal} />
             }
           />
           <Route
@@ -1447,19 +1435,15 @@ function App() {
                 orders={state.orders}
                 onStatusChange={(orderId, status) => {
                   updateOrderStatus(orderId, status);
-                  pushToast(
-                    status === "accepted" ? t("toast.ticketAccepted") : t("toast.ticketDeclined"),
-                    status === "accepted" ? "success" : "info",
-                  );
                 }}
                 onReady={(orderId) => {
                   markOrderReady(orderId);
-                  pushToast(t("toast.orderReady"));
                 }}
               />
             }
           />
           <Route path="/location" element={<LocationPage />} />
+          <Route path="/order-success" element={<OrderSuccessPage />} />
           <Route
             path="/cart"
             element={
@@ -1468,20 +1452,17 @@ function App() {
                 onUpdateQuantity={updateCartLineQuantity}
                 onRemoveLine={removeCartLine}
                 onCheckout={checkoutCart}
-                onCheckoutSuccess={({ qty, lines }) => {
-                  pushToast(t("toast.orderSent", { qty, lines }));
-                }}
               />
             }
           />
           <Route
             path="/profile"
             element={
-              <ProfilePage orders={filterOrdersForAccount(authSession, state.orders)} session={authSession} />
+              <ProfilePage session={authSession} />
             }
           />
-          <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} pushToast={pushToast} />} />
-          <Route path="/register" element={<RegisterPage onLoginSuccess={handleLoginSuccess} pushToast={pushToast} />} />
+          <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/register" element={<RegisterPage onLoginSuccess={handleLoginSuccess} />} />
           <Route
             path="/owner"
             element={
@@ -1577,7 +1558,39 @@ function MobileLink({ to, onDone, children }) {
   );
 }
 
-function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckoutSuccess }) {
+function OrderSuccessPage() {
+  const { t } = useI18n();
+  const location = useLocation();
+  const summary =
+    location.state && typeof location.state === "object" && !Array.isArray(location.state) ? location.state : null;
+  const qty = Math.max(0, Math.floor(Number(summary?.qty)));
+  const lines = Math.max(0, Math.floor(Number(summary?.lines)));
+
+  return (
+    <section className="content-section page-section order-success-page" aria-labelledby="order-success-title">
+      <div className="section-heading">
+        <p className="eyebrow">{t("orderSuccess.eyebrow")}</p>
+        <h1 id="order-success-title" className="order-success-title">
+          {t("orderSuccess.title")}
+        </h1>
+        <p>{t("orderSuccess.body")}</p>
+        {qty > 0 && lines > 0 ? (
+          <p className="order-success-summary">{t("orderSuccess.summary", { qty, lines })}</p>
+        ) : null}
+      </div>
+      <div className="order-success-actions">
+        <Link className="primary-cta" to="/menu">
+          {t("orderSuccess.backMenu")}
+        </Link>
+        <Link className="secondary-cta" to="/">
+          {t("orderSuccess.backHome")}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const subtotal = useMemo(
@@ -1591,8 +1604,7 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckout
     const lines = cart.length;
     const ok = await onCheckout();
     if (!ok) return;
-    onCheckoutSuccess?.({ qty, lines });
-    navigate("/orders");
+    navigate("/order-success", { state: { qty, lines } });
   }
 
   return (
@@ -1754,7 +1766,7 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
   );
 }
 
-function HomePage({ menu, orders, session, onOrder }) {
+function HomePage({ menu, orders, onOrder }) {
   const { t } = useI18n();
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
   const popularItems = useMemo(
@@ -1791,7 +1803,6 @@ function HomePage({ menu, orders, session, onOrder }) {
           <p>{t("home.popularBody")}</p>
         </div>
         <HomePopularCarousel items={popularItems} onOrder={onOrder} orders={orders} menuForBadges={visibleMenu} />
-        <OrderHistory orders={filterOrdersForAccount(session, orders)} />
       </section>
     </div>
   );
@@ -1860,8 +1871,6 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
           <p className="empty-state-hint">{t("menuPage.emptyFilterHint")}</p>
         </div>
       )}
-
-      <OrderHistory orders={filterOrdersForAccount(session, orders)} />
     </section>
   );
 }
@@ -2061,35 +2070,6 @@ function MenuCard({
   );
 }
 
-function OrderHistory({ orders, fullList = false }) {
-  const { t } = useI18n();
-  const recentOrders = fullList ? orders : orders.slice(0, 4);
-
-  return (
-    <div className="order-history">
-      <div className="section-heading compact">
-        <p className="eyebrow">{t("orderHistory.eyebrow")}</p>
-        <h2>{t("orderHistory.title")}</h2>
-      </div>
-      {recentOrders.length ? (
-        <div className="ticket-list">
-          {recentOrders.map((order) => (
-            <OrderTicket key={order.id} order={order} />
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state empty-state--soft order-history-empty">
-          <p className="empty-state-title">{t("orderHistory.emptyTitle")}</p>
-          <p className="empty-state-hint">{t("orderHistory.emptyHint")}</p>
-          <Link className="secondary-cta" to="/menu">
-            {t("cart.browseMenu")}
-          </Link>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
   const { t } = useI18n();
   if (session?.role === "staff") {
@@ -2103,10 +2083,15 @@ function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
     <section className="content-section page-section" aria-labelledby="orders-title">
       <div className="section-heading">
         <p className="eyebrow">{t("ordersPage.eyebrow")}</p>
-        <h2 id="orders-title">{t("ordersPage.title")}</h2>
-        <p>{t("ordersPage.body")}</p>
+        <h2 id="orders-title">{t("ordersPage.customerTitle")}</h2>
+        <p>{t("ordersPage.customerBody")}</p>
       </div>
-      <OrderHistory orders={filterOrdersForAccount(session, orders)} fullList />
+      <div className="empty-state empty-state--soft profile-empty-panel">
+        <p className="empty-state-hint">{t("ordersPage.customerHint")}</p>
+        <Link className="primary-cta" to="/menu">
+          {t("profile.goMenu")}
+        </Link>
+      </div>
     </section>
   );
 }
@@ -2996,7 +2981,7 @@ function LocationPage() {
   );
 }
 
-function ProfilePage({ orders, session }) {
+function ProfilePage({ session }) {
   const { t } = useI18n();
   const roleKey =
     session?.role === "staff"
@@ -3007,59 +2992,31 @@ function ProfilePage({ orders, session }) {
           ? "profile.roleCustomer"
           : null;
   const roleLabel = roleKey ? t(roleKey) : "";
-  const latestOrders = orders.slice(0, 3);
 
   return (
     <section className="content-section page-section" aria-labelledby="profile-title">
       <div className="section-heading">
         <p className="eyebrow">{t("profile.eyebrow")}</p>
-        <h2 id="profile-title">
-          {session ? t("profile.titleLogged", { name: session.username }) : t("profile.titleGuest")}
-        </h2>
+        {!session ? (
+          <div className="profile-hero-row">
+            <h2 id="profile-title" className="profile-hero-title">
+              {t("profile.titleGuest")}
+            </h2>
+            <div className="profile-auth-actions">
+              <Link className="primary-cta" to="/login">
+                {t("profile.login")}
+              </Link>
+              <Link className="secondary-cta" to="/register">
+                {t("profile.register")}
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <h2 id="profile-title">{t("profile.titleLogged", { name: session.username })}</h2>
+        )}
         <p>
           {session ? t("profile.bodyStaff", { role: roleLabel }) : t("profile.bodyGuest")}
         </p>
-      </div>
-      {!session ? (
-        <div className="profile-auth-actions">
-          <Link className="primary-cta" to="/login">
-            {t("profile.login")}
-          </Link>
-          <Link className="secondary-cta" to="/register">
-            {t("profile.register")}
-          </Link>
-        </div>
-      ) : null}
-
-      <div className="profile-order-history" aria-labelledby="profile-order-history-title">
-        <div className="section-heading compact">
-          <p className="eyebrow">{t("profile.orderHistoryEyebrow")}</p>
-          <h2 id="profile-order-history-title" className="profile-order-history-heading">
-            {t("profile.orderHistoryTitle")}
-          </h2>
-        </div>
-        {orders.length === 0 ? (
-          <div className="empty-state empty-state--soft profile-empty-panel">
-            <p className="empty-state-title">{t("profile.emptyTitle")}</p>
-            <p className="empty-state-hint">{t("profile.emptyHint")}</p>
-            <Link className="primary-cta" to="/menu">
-              {t("profile.goMenu")}
-            </Link>
-          </div>
-        ) : (
-          <>
-            <div className="ticket-list profile-order-ticket-list">
-              {latestOrders.map((order) => (
-                <OrderTicket key={order.id} order={order} />
-              ))}
-            </div>
-            <div className="profile-order-history-actions">
-              <Link className="secondary-cta" to="/orders">
-                {t("profile.viewAllOrders")}
-              </Link>
-            </div>
-          </>
-        )}
       </div>
     </section>
   );

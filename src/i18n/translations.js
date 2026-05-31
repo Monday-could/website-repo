@@ -53,63 +53,15 @@ const STR = {
   "footer.cart": { en: "Cart", zh: "购物车", es: "Carrito" },
   "footer.demoStore": { en: "Chicago Demo Store", zh: "芝加哥演示店", es: "Tienda demo Chicago" },
 
-  "toast.welcome": { en: "Welcome, {name}.", zh: "欢迎，{name}。", es: "Bienvenido/a, {name}." },
-  "toast.registerOk": { en: "Account created — you are signed in.", zh: "注册成功，已自动登录。", es: "Cuenta creada — sesión iniciada." },
-  "toast.logout": { en: "Signed out.", zh: "已退出登录。", es: "Sesión cerrada." },
-  "toast.exitStaffOwner": {
-    en: "Signed out of staff/owner — browsing as a guest.",
-    zh: "已退出职级账号，以访客身份浏览顾客模式。",
-    es: "Sesión de personal/dueño cerrada — navegando como invitado.",
-  },
-  "toast.addCart": { en: "Added “{dish}” to your cart.", zh: "已将「{dish}」加入购物车。", es: "Se añadió «{dish}» al carrito." },
-  "toast.reviewPosted": { en: "Thanks — your review was posted.", zh: "感谢提交评价。", es: "Gracias — tu reseña se publicó." },
-  "toast.ticketAccepted": { en: "Ticket accepted — kitchen can start prep.", zh: "订单已接单，厨房可开始备餐。", es: "Pedido aceptado — la cocina puede empezar." },
-  "toast.ticketDeclined": { en: "Ticket declined.", zh: "订单已拒绝。", es: "Pedido rechazado." },
-  "toast.orderReady": { en: "Marked ready for guest pickup.", zh: "已标记为可取餐。", es: "Marcado listo para recoger." },
-  "toast.orderSent": {
-    en: "Order sent — {qty} item(s) on {lines} ticket line(s).",
-    zh: "订单已提交 — 共 {qty} 件商品，{lines} 行小票。",
-    es: "Pedido enviado — {qty} artículo(s) en {lines} línea(s) de ticket.",
-  },
   "toast.dataLoadError": {
     en: "Could not load menu or orders from the server.",
     zh: "无法从服务器加载菜单或订单。",
     es: "No se pudo cargar el menú o los pedidos.",
   },
-  "toast.authBootstrapTimeout": {
-    en: "Sign-in check is taking too long — you can keep browsing; try refreshing if login looks wrong.",
-    zh: "登录状态检查超时 — 可先继续浏览；若登录状态异常请刷新页面。",
-    es: "La comprobación de sesión tarda demasiado — puedes seguir navegando; recarga si el inicio de sesión falla.",
-  },
   "toast.dataLoadTimeout": {
     en: "Menu or orders did not load in time — check your network or Supabase project status, then refresh.",
     zh: "菜单或订单加载超时 — 请检查网络或 Supabase 项目是否正常，然后刷新页面。",
     es: "El menú o los pedidos tardaron demasiado — revisa la red o el estado del proyecto Supabase y recarga.",
-  },
-  "toast.supabaseMissing": {
-    en: "Supabase is not configured — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.",
-    zh: "未配置 Supabase：请在 .env 中填写 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。",
-    es: "Supabase no está configurado: añade VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en .env.",
-  },
-  "toast.checkoutFailed": {
-    en: "Checkout failed — please try again.",
-    zh: "结账失败，请重试。",
-    es: "El pago del pedido falló — inténtalo de nuevo.",
-  },
-  "toast.orderUpdateFailed": {
-    en: "Could not update that order.",
-    zh: "无法更新该订单。",
-    es: "No se pudo actualizar el pedido.",
-  },
-  "toast.reviewFailed": {
-    en: "Could not post your review.",
-    zh: "无法提交评价。",
-    es: "No se pudo publicar tu reseña.",
-  },
-  "toast.menuSaveFailed": {
-    en: "Could not save menu changes.",
-    zh: "无法保存菜单更改。",
-    es: "No se pudieron guardar los cambios del menú.",
   },
 
   "app.supabaseBanner": {
@@ -165,6 +117,25 @@ const STR = {
     zh: "结账后每一行商品会生成一张厨房小票供员工处理。",
     es: "Al pagar, cada línea se envía a cocina como ticket para el personal.",
   },
+
+  "orderSuccess.eyebrow": { en: "Thank you", zh: "感谢惠顾", es: "Gracias" },
+  "orderSuccess.title": {
+    en: "Your order was placed successfully",
+    zh: "恭喜，下单成功",
+    es: "Pedido realizado con éxito",
+  },
+  "orderSuccess.body": {
+    en: "The kitchen has received your tickets. Staff will prepare your order — you can keep browsing the menu or return home.",
+    zh: "厨房已收到您的小票，员工将开始备餐。您可以继续浏览菜单或返回首页。",
+    es: "Cocina ha recibido tus tickets. El personal preparará el pedido; puedes seguir en el menú o volver al inicio.",
+  },
+  "orderSuccess.summary": {
+    en: "{qty} item(s) on {lines} ticket line(s).",
+    zh: "共 {qty} 件商品，{lines} 行小票。",
+    es: "{qty} artículo(s) en {lines} línea(s) de ticket.",
+  },
+  "orderSuccess.backMenu": { en: "Back to menu", zh: "返回菜单", es: "Volver al menú" },
+  "orderSuccess.backHome": { en: "Back to home", zh: "返回首页", es: "Inicio" },
 
   "home.carouselEmptyTitle": { en: "No dishes to show yet", zh: "暂无可展示菜品", es: "Aún no hay platos" },
   "home.carouselEmptyHint": {
@@ -259,21 +230,17 @@ const STR = {
   "dishReviews.total": { en: "{count} total", zh: "共 {count} 条", es: "{count} en total" },
   "dishReviews.close": { en: "Close", zh: "关闭", es: "Cerrar" },
 
-  "orderHistory.eyebrow": { en: "Live ticket board", zh: "实时小票", es: "Tablero de tickets" },
-  "orderHistory.title": { en: "Recent orders", zh: "最近订单", es: "Pedidos recientes" },
-  "orderHistory.emptyTitle": { en: "No kitchen tickets yet", zh: "暂无厨房小票", es: "Aún no hay tickets" },
-  "orderHistory.emptyHint": {
-    en: "Check out from the cart — each line becomes a ticket for staff.",
-    zh: "在购物车结账后，每一行会生成员工可见的小票。",
-    es: "Paga en el carrito — cada línea se convierte en ticket para el personal.",
-  },
-
   "ordersPage.eyebrow": { en: "Orders", zh: "订单", es: "Pedidos" },
-  "ordersPage.title": { en: "Your order board", zh: "你的订单看板", es: "Tu tablero de pedidos" },
-  "ordersPage.body": {
-    en: "Customer orders appear here first, then staff can switch modes and accept tickets.",
-    zh: "顾客订单会先出现在这里，员工切换模式后即可接单。",
-    es: "Los pedidos del cliente aparecen aquí; el personal puede cambiar de modo y aceptar tickets.",
+  "ordersPage.customerTitle": { en: "Kitchen queue (staff only)", zh: "厨房队列（仅员工）", es: "Cola de cocina (solo personal)" },
+  "ordersPage.customerBody": {
+    en: "This site does not show a live order list to customers. Full ticket history and status are available in Staff mode after signing in with a staff account.",
+    zh: "本站不向顾客展示实时订单列表。完整小票与状态请在员工模式下使用员工账号登录后查看。",
+    es: "Esta web no muestra pedidos en vivo a clientes. El historial completo está en modo Personal tras iniciar sesión.",
+  },
+  "ordersPage.customerHint": {
+    en: "Need the menu? Head back to browse dishes and check out as usual.",
+    zh: "要点餐请返回菜单浏览菜品并照常结账。",
+    es: "¿Menú? Vuelve para ver platos y pagar con normalidad.",
   },
 
   "staff.eyebrow": { en: "Staff mode", zh: "员工模式", es: "Modo personal" },
@@ -468,15 +435,6 @@ const STR = {
   "profile.logout": { en: "Log out", zh: "退出登录", es: "Cerrar sesión" },
   "profile.login": { en: "Log in", zh: "登录", es: "Entrar" },
   "profile.register": { en: "Register a customer account", zh: "注册顾客账号", es: "Registrar cuenta de cliente" },
-  "profile.orderHistoryEyebrow": { en: "Your orders", zh: "你的订单", es: "Tus pedidos" },
-  "profile.orderHistoryTitle": { en: "Order history", zh: "点菜历史", es: "Historial de pedidos" },
-  "profile.viewAllOrders": { en: "View all", zh: "查看全部", es: "Ver todo" },
-  "profile.emptyTitle": { en: "No orders in this browser yet", zh: "本浏览器尚无订单", es: "Aún no hay pedidos aquí" },
-  "profile.emptyHint": {
-    en: "Place an order from the menu and check out — your demo history will show here.",
-    zh: "从菜单下单并结账后，演示订单记录会显示在这里。",
-    es: "Pide desde el menú y paga — tu historial demo aparecerá aquí.",
-  },
   "profile.goMenu": { en: "Go to menu", zh: "前往菜单", es: "Ir al menú" },
 
   "auth.login.title": { en: "Log in", zh: "登录", es: "Iniciar sesión" },
@@ -487,6 +445,11 @@ const STR = {
   "auth.login.loading": { en: "Please wait…", zh: "请稍候…", es: "Espera…" },
   "auth.login.linkRegister": { en: "No account yet? Register", zh: "还没有账号？去注册", es: "¿Sin cuenta? Regístrate" },
   "auth.login.linkGuest": { en: "Continue as guest", zh: "以游客继续浏览", es: "Continuar como invitado" },
+  "auth.login.noticeProfile": {
+    en: "Log in to open your profile. Order history is not shown on the customer site — staff handle tickets in Staff mode.",
+    zh: "请登录后查看个人资料。本站不向顾客展示订单历史；员工请在「员工模式」中处理小票。",
+    es: "Inicia sesión para ver tu perfil. El historial de pedidos no se muestra aquí; el personal usa modo Personal.",
+  },
 
   "auth.register.title": { en: "Customer registration", zh: "顾客注册", es: "Registro de cliente" },
   "auth.register.eyebrow": { en: "Account", zh: "账号", es: "Cuenta" },
@@ -507,6 +470,11 @@ const STR = {
   "auth.error.REG_USERNAME_TAKEN": { en: "That username is already registered.", zh: "该用户名已被注册。", es: "Ese usuario ya está registrado." },
   "auth.error.REG_PASSWORD_MISMATCH": { en: "Passwords do not match.", zh: "两次输入的密码不一致。", es: "Las contraseñas no coinciden." },
   "auth.error.LOGIN_FAILED": { en: "Sign-in failed.", zh: "登录失败。", es: "Error al iniciar sesión." },
+  "auth.error.AUTH_TIMEOUT": {
+    en: "The server took too long to respond. Check your network and try again.",
+    zh: "服务器响应超时，请检查网络后重试。",
+    es: "El servidor tardó demasiado. Comprueba la red e inténtalo de nuevo.",
+  },
   "auth.error.REGISTER_FAILED": { en: "Registration failed.", zh: "注册失败。", es: "Error al registrarse." },
   "auth.error.REG_CONFIRM_EMAIL": {
     en: "Check your email to confirm the account before signing in.",
@@ -523,7 +491,7 @@ const STR = {
   "common.walkInGuest": { en: "Walk-in Guest", zh: "到店顾客", es: "Cliente sin reserva" },
   "common.close": { en: "Close", zh: "关闭", es: "Cerrar" },
   "common.cancel": { en: "Cancel", zh: "取消", es: "Cancelar" },
-  "common.notifications": { en: "Notifications", zh: "通知", es: "Notificaciones" },
+  "common.notifications": { en: "Load error alerts", zh: "加载错误提示", es: "Avisos de error de carga" },
   "common.dismissNotification": { en: "Dismiss notification", zh: "关闭通知", es: "Descartar aviso" },
 
   "a11y.stars": { en: "{value} out of 5 stars", zh: "{value} 星（满分 5 星）", es: "{value} de 5 estrellas" },

@@ -1886,6 +1886,38 @@ a.header-user-name.header-user-name--link:hover {
   color: var(--text-gray);
 }
 
+/* Profile (guest): title + login/register on one row */
+.profile-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 20px;
+  margin-bottom: 12px;
+}
+
+.profile-hero-row .profile-hero-title {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: min(100%, 220px);
+}
+
+.profile-hero-row .profile-auth-actions {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .profile-hero-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-hero-row .profile-auth-actions {
+    justify-content: flex-start;
+  }
+}
+
 .profile-auth-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2248,9 +2280,12 @@ a.drawer-link.active {
   gap: 12px;
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
   pointer-events: auto;
-  box-shadow: var(--shadow-modal);
+  /* High-contrast solid panel (no glass / pastel) so messages stay readable on any page */
+  background: #0a0a0a;
+  color: #fff;
+  border: 1px solid #2a2a2a;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
   animation: toast-in 0.28s var(--ease-out);
 }
 
@@ -2266,24 +2301,26 @@ a.drawer-link.active {
   }
 }
 
+/* Variants share the same legible chrome; optional accent is border-only */
 .toast--success {
-  background: var(--color-success-bg);
-  border-color: rgba(36, 138, 61, 0.35);
-  color: #145c28;
+  border-color: #3d5c3d;
 }
 
 .toast--info {
-  background: var(--color-info-bg);
-  border-color: rgba(30, 58, 95, 0.2);
-  color: var(--color-info-text);
+  border-color: #4a5a7a;
+}
+
+.toast--error {
+  border-color: #8a3a3a;
 }
 
 .toast-message {
   margin: 0;
   flex: 1;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.45;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #fafafa;
 }
 
 .toast-dismiss {
@@ -2295,14 +2332,19 @@ a.drawer-link.active {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(17, 17, 17, 0.06);
-  color: inherit;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
   cursor: pointer;
   transition: background var(--transition-fast);
 }
 
 .toast-dismiss:hover {
-  background: rgba(17, 17, 17, 0.12);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.toast-dismiss:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .toast-dismiss .icon {
@@ -2377,6 +2419,30 @@ a.drawer-link.active {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+
+.order-success-page .section-heading {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.order-success-title {
+  margin-bottom: 12px;
+}
+
+.order-success-summary {
+  margin: 14px 0 0;
+  font-weight: 700;
+  color: var(--text-gray);
+}
+
+.order-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  max-width: 640px;
+  margin: 28px auto 0;
 }
 
 .cart-page-intro h1 {
