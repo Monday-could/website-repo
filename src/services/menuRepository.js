@@ -40,14 +40,32 @@ function mapReviewRow(r) {
   };
 }
 
+/**
+ * PostgREST headers: always send public anon as apikey; use the signed-in user's JWT
+ * when present so RLS sees auth.uid() (e.g. owner/staff can SELECT unavailable dishes).
+ */
+async function buildRestHeaders() {
+  const cfg = getSupabaseRestConfig();
+  if (!cfg) return null;
+  const sb = getSupabase();
+  let bearer = cfg.anonKey;
+  if (sb) {
+    const { data } = await sb.auth.getSession();
+    if (data?.session?.access_token) bearer = data.session.access_token;
+  }
+  return {
+    apikey: cfg.anonKey,
+    Authorization: `Bearer ${bearer}`,
+  };
+}
+
 async function fetchJsonFromRest(path, signal) {
   const cfg = getSupabaseRestConfig();
   if (!cfg) return [];
+  const headers = await buildRestHeaders();
+  if (!headers) return [];
   const response = await fetch(`${cfg.url}/rest/v1/${path}`, {
-    headers: {
-      apikey: cfg.anonKey,
-      Authorization: `Bearer ${cfg.anonKey}`,
-    },
+    headers,
     signal,
   });
   if (!response.ok) {
@@ -157,6 +175,11 @@ export async function updateMenuItem(itemId, patch) {
 export async function deleteMenuItem(itemId) {
   const sb = getSupabase();
   if (!sb) throw new Error("SUPABASE_NOT_CONFIGURED");
-  const { error } = await sb.from("menu_items").delete().eq("id", itemId);
+  const { data, error } = await sb.from("menu_items").delete().eq("id", itemId).select("id");
   if (error) throw error;
+  if (!data?.length) {
+    const err = new Error("Menu item was not deleted.");
+    err.code = "MENU_DELETE_NO_ROWS";
+    throw err;
+  }
 }

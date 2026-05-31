@@ -761,10 +761,9 @@ function App() {
   const [orderNotesDraft, setOrderNotesDraft] = useState("");
   const [toasts, setToasts] = useState([]);
 
-  /** Toasts: only initial menu / orders load failures from the server. */
-  const enqueueLoadErrorToast = useCallback((message) => {
+  const enqueueToast = useCallback((message, variant = "error") => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setToasts((prev) => [...prev.slice(-3), { id, message, variant: "error" }]);
+    setToasts((prev) => [...prev.slice(-3), { id, message, variant }]);
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((x) => x.id !== id));
     }, TOAST_TTL_MS);
@@ -822,9 +821,9 @@ function App() {
         } else {
           console.error(e);
           if (e?.code === "TIMEOUT") {
-            enqueueLoadErrorToast(t("toast.dataLoadTimeout"));
+            enqueueToast(t("toast.dataLoadTimeout"));
           } else {
-            enqueueLoadErrorToast(t("toast.dataLoadError"));
+            enqueueToast(t("toast.dataLoadError"));
           }
         }
       } finally {
@@ -835,7 +834,7 @@ function App() {
       cancelled = true;
       abortController.abort();
     };
-  }, [t, enqueueLoadErrorToast]);
+  }, [t, enqueueToast]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -859,9 +858,9 @@ function App() {
         if (isAbortLikeError(e)) return;
         console.error(e);
         if (e?.code === "TIMEOUT") {
-          enqueueLoadErrorToast(t("toast.dataLoadTimeout"));
+          enqueueToast(t("toast.dataLoadTimeout"));
         } else {
-          enqueueLoadErrorToast(t("toast.dataLoadError"));
+          enqueueToast(t("toast.dataLoadError"));
         }
       }
     })();
@@ -869,7 +868,7 @@ function App() {
       cancelled = true;
       abortController.abort();
     };
-  }, [authSession?.id, authSession?.role, t, enqueueLoadErrorToast]);
+  }, [authSession?.id, authSession?.role, t, enqueueToast]);
 
   const modes = useMemo(
     () => [
@@ -1142,13 +1141,19 @@ function App() {
   }
 
   async function deleteMenuItem(itemId) {
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured()) return false;
     try {
       await deleteMenuItemRemote(itemId);
-      const menu = await fetchMenuWithReviews();
-      setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+      setState((c) => ({
+        ...c,
+        menu: c.menu.filter((item) => item.id !== itemId),
+        orders: c.orders.filter((order) => order.itemId !== itemId),
+      }));
+      return true;
     } catch (e) {
       console.error(e);
+      enqueueToast(e?.code === "23503" ? t("toast.deleteDishBlocked") : t("toast.deleteDishError"));
+      return false;
     }
   }
 
@@ -2792,9 +2797,9 @@ function OwnerEditMenuPage() {
   const { menu, orders, onDeleteMenuItem, onToggleMenuItemAvailable } = useOutletContext();
   const navigate = useNavigate();
 
-  function confirmDelete(item) {
+  async function confirmDelete(item) {
     if (!window.confirm(t("ownerEdit.confirmDelete", { name: item.name }))) return;
-    onDeleteMenuItem(item.id);
+    await onDeleteMenuItem(item.id);
   }
 
   return (

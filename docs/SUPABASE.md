@@ -33,7 +33,7 @@ supabase db push
 
 Alternatively, paste the migration file contents into the Dashboard **SQL Editor** (respect order; run once).
 
-Migrations create: `profiles`, `menu_items`, `reviews`, `orders`, and the Storage bucket **`menu-images`** (public read; writes restricted to the `owner` role). A follow-up migration grants **`anon` / `authenticated`** table privileges required by PostgREST (RLS is not enough on its own).
+Migrations create: `profiles`, `menu_items`, `reviews`, `orders`, and the Storage bucket **`menu-images`** (public read; writes restricted to the `owner` role). A follow-up migration grants **`anon` / `authenticated`** table privileges required by PostgREST (RLS is not enough on its own). Later migrations adjust orders visibility and **`ON DELETE CASCADE`** from `orders.item_id` to `menu_items` so owners can delete dishes that already have order lines (see `20250603120000_orders_menu_item_cascade_delete.sql`).
 
 ## Permissions (GRANT)
 

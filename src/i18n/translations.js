@@ -68,6 +68,17 @@ const STR = {
     es: "El menú o los pedidos tardaron demasiado — revisa la red o el estado del proyecto Supabase y recarga.",
   },
 
+  "toast.deleteDishError": {
+    en: "Could not delete that dish. Confirm you are signed in as the owner and try again.",
+    zh: "Could not delete that dish. Confirm you are signed in as the owner and try again.",
+    es: "Could not delete that dish. Confirm you are signed in as the owner and try again.",
+  },
+  "toast.deleteDishBlocked": {
+    en: "That dish has existing orders. Apply the Supabase cascade-delete migration, then try again.",
+    zh: "That dish has existing orders. Apply the Supabase cascade-delete migration, then try again.",
+    es: "That dish has existing orders. Apply the Supabase cascade-delete migration, then try again.",
+  },
+
   "app.supabaseBanner": {
     en: "Supabase environment variables are not configured.",
     zh: "请先配置 Supabase 环境变量（见 .env.example），否则无法加载演示数据。",
@@ -360,9 +371,9 @@ const STR = {
   "ownerEdit.eyebrow": { en: "Edit menu", zh: "编辑菜单", es: "Editar menú" },
   "ownerEdit.allDishes": { en: "All dishes", zh: "全部菜品", es: "Todos los platos" },
   "ownerEdit.intro": {
-    en: "Open a dish to change its details, or use the row actions to hide it from guests or remove it.",
-    zh: "打开菜品修改详情，或使用行操作在顾客端隐藏或删除。",
-    es: "Abre un plato para editarlo u ocultarlo o eliminarlo con las acciones de la fila.",
+    en: "Open a dish to change its details. Hide removes it from the guest menu only — it stays in this list so you can show it again. Delete permanently removes the dish (and linked order lines for that item).",
+    zh: "打开菜品可修改详情。「从菜单隐藏」仅对顾客隐藏，本列表仍会显示，便于再次「在菜单显示」。「删除」会永久删除该菜品（并级联删除引用该菜品的订单行）。",
+    es: "Abre un plato para editarlo. Ocultar solo lo quita del menú del cliente — sigue en esta lista para volver a mostrarlo. Eliminar borra el plato por completo (y pedidos vinculados a ese ítem).",
   },
   "ownerEdit.emptyList": { en: "No dishes yet. Add one on the Add dish tab.", zh: "暂无菜品。请在「添加菜品」标签添加。", es: "Aún no hay platos. Añade uno en la pestaña Añadir plato." },
   "ownerEdit.hiddenPill": { en: "Hidden from menu", zh: "已从菜单隐藏", es: "Oculto en menú" },
