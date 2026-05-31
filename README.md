@@ -23,7 +23,7 @@ Without `.env`, the app still builds but shows a banner and does not load menu o
 
 ### Staff mode
 
-- After Supabase seed: sign in as **`worker`** (maps to `worker@diner-desk.local`) / **`imworker`** — see [docs/SUPABASE.md](docs/SUPABASE.md).
+- After Supabase seed: sign in as **`worker`** (maps to `worker@monday.com`) / **`imworker`** — see [docs/SUPABASE.md](docs/SUPABASE.md).
 - **Staff order desk** (`/orders`) — Accept or decline new tickets, mark orders ready, with separate queues for pending and handled items.
 - Header shortcuts and **mode** switching (customer / staff / owner) with role-aware navigation.
 
@@ -71,7 +71,7 @@ Then open the URL shown in the terminal (default dev server: `http://127.0.0.1:5
 | -------- | -------- | ---------- |
 | Staff    | `worker` | `imworker` |
 | Owner    | `boss`   | `imboss`   |
-| Customer | Register in the UI (Supabase Auth); short names become `name@diner-desk.local`. |
+| Customer | Register in the UI (Supabase Auth); short names become `name@monday.com` (see `AUTH_EMAIL_DOMAIN` in `authService.js`). |
 
 Reserved usernames cannot be used for self-registration (`worker`, `boss`, etc.).
 

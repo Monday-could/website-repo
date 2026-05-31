@@ -560,19 +560,12 @@ function LoginPage({ onLoginSuccess, pushToast }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const roleHint = searchParams.get("role") || "customer";
   const returnTo = sanitizeReturnToParam(searchParams.get("returnTo"));
   const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const hintText = useMemo(() => {
-    if (roleHint === "staff") return t("auth.login.hintStaff");
-    if (roleHint === "owner") return t("auth.login.hintOwner");
-    return t("auth.login.hintCustomer");
-  }, [roleHint, t]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -599,7 +592,6 @@ function LoginPage({ onLoginSuccess, pushToast }) {
       <div className="section-heading">
         <p className="eyebrow">{t("auth.login.eyebrow")}</p>
         <h2 id="login-title">{t("auth.login.title")}</h2>
-        <p className="auth-hint">{hintText}</p>
       </div>
       <form className="auth-form" onSubmit={handleSubmit}>
         {error ? (
@@ -677,7 +669,6 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
       <div className="section-heading">
         <p className="eyebrow">{t("auth.register.eyebrow")}</p>
         <h2 id="register-title">{t("auth.register.title")}</h2>
-        <p className="auth-hint">{t("auth.register.hint")}</p>
       </div>
       <form className="auth-form" onSubmit={handleSubmit}>
         {error ? (

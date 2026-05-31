@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+/** Legacy anon JWT or newer `sb_publishable_…` key (both work with createClient). */
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
 /** @type {import('@supabase/supabase-js').SupabaseClient | null} */
 let client = null;

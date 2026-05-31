@@ -471,21 +471,6 @@ const STR = {
 
   "auth.login.title": { en: "Log in", zh: "登录", es: "Iniciar sesión" },
   "auth.login.eyebrow": { en: "Account", zh: "账号", es: "Cuenta" },
-  "auth.login.hintStaff": {
-    en: "Staff: create user worker@diner-desk.local in Supabase Auth (password imworker), set profiles.role = staff, then sign in as worker or full email.",
-    zh: "员工：在 Supabase Auth 创建 worker@diner-desk.local（密码 imworker），将 profiles.role 设为 staff，然后用户名填 worker 或完整邮箱登录。",
-    es: "Personal: crea worker@diner-desk.local en Supabase Auth (imworker), pon profiles.role = staff, e inicia como worker o email completo.",
-  },
-  "auth.login.hintOwner": {
-    en: "Owner: create boss@diner-desk.local (password imboss), set profiles.role = owner, then sign in as boss or full email.",
-    zh: "老板：创建 boss@diner-desk.local（密码 imboss），将 profiles.role 设为 owner，然后用户名填 boss 或完整邮箱登录。",
-    es: "Dueño: crea boss@diner-desk.local (imboss), pon profiles.role = owner, e inicia como boss o email completo.",
-  },
-  "auth.login.hintCustomer": {
-    en: "Customers can register and sign in, or continue browsing the menu and cart as a guest.",
-    zh: "顾客可注册登录；不登录也可直接浏览菜单与购物车（游客）。",
-    es: "Los clientes pueden registrarse o seguir como invitado en menú y carrito.",
-  },
   "auth.login.username": { en: "Username", zh: "用户名", es: "Usuario" },
   "auth.login.password": { en: "Password", zh: "密码", es: "Contraseña" },
   "auth.login.submit": { en: "Log in", zh: "登录", es: "Entrar" },
@@ -495,20 +480,15 @@ const STR = {
 
   "auth.register.title": { en: "Customer registration", zh: "顾客注册", es: "Registro de cliente" },
   "auth.register.eyebrow": { en: "Account", zh: "账号", es: "Cuenta" },
-  "auth.register.hint": {
-    en: "Creates a customer account with Supabase Auth. Use an email or a short name (we append @diner-desk.local).",
-    zh: "使用 Supabase Auth 创建顾客账号。可填邮箱或短用户名（会自动加上 @diner-desk.local）。",
-    es: "Crea una cuenta de cliente con Supabase Auth. Usa un correo o un nombre corto (añadimos @diner-desk.local).",
-  },
   "auth.register.password2": { en: "Confirm password", zh: "确认密码", es: "Confirmar contraseña" },
   "auth.register.submit": { en: "Register & sign in", zh: "注册并登录", es: "Registrar e iniciar sesión" },
   "auth.register.linkLogin": { en: "Already have an account? Log in", zh: "已有账号？去登录", es: "¿Ya tienes cuenta? Entra" },
 
   "auth.error.AUTH_EMPTY": { en: "Enter username and password.", zh: "请输入用户名和密码。", es: "Introduce usuario y contraseña." },
   "auth.error.AUTH_RESERVED_LOGIN": {
-    en: "That username is reserved — use the staff or owner login entry.",
-    zh: "该用户名为系统保留，请使用员工或老板入口登录。",
-    es: "Ese usuario está reservado — usa la entrada de personal o dueño.",
+    en: "That sign-in is not available.",
+    zh: "无法使用该方式登录。",
+    es: "Ese inicio de sesión no está disponible.",
   },
   "auth.error.AUTH_BAD_CREDENTIALS": { en: "Incorrect username or password.", zh: "用户名或密码不正确。", es: "Usuario o contraseña incorrectos." },
   "auth.error.REG_USERNAME_SHORT": { en: "Username must be at least 3 characters.", zh: "用户名至少 3 个字符。", es: "El usuario debe tener al menos 3 caracteres." },

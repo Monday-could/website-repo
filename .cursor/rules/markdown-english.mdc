@@ -1,0 +1,8 @@
+---
+description: Write repository Markdown documentation in English
+globs: "**/*.md"
+---
+
+# Documentation language
+
+All new and updated Markdown in this repository (for example `README.md`, `docs/**/*.md`, and other `*.md` files) must be written in **English**, unless the user explicitly asks for another language for a specific file.

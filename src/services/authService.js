@@ -5,8 +5,12 @@
 
 import { getSupabase } from "../lib/supabaseClient.js";
 
-/** Demo domain appended when the login field has no `@` (see docs/SUPABASE.md). */
-export const AUTH_EMAIL_DOMAIN = "diner-desk.local";
+/**
+ * Synthetic email domain when the login/register field has no `@`.
+ * Not your website URL — only used to build valid addresses for Supabase Auth.
+ * If you change this, recreate seed Auth users with the new domain or sign in with full email.
+ */
+export const AUTH_EMAIL_DOMAIN = "monday.com";
 
 /** @deprecated kept for greps/docs; session lives in Supabase Auth storage */
 export const AUTH_SESSION_KEY = "toms-auth-session-v1";
