@@ -1,5 +1,5 @@
 import { getSupabase, getSupabaseRestConfig } from "../lib/supabaseClient.js";
-import { resolveMenuImageForPersist } from "./menuImageStorage.js";
+import { removeMenuImageFromStorageIfPresent, resolveMenuImageForPersist } from "./menuImageStorage.js";
 
 function mapBadges(row) {
   const b = row.manual_badges;
@@ -172,9 +172,24 @@ export async function updateMenuItem(itemId, patch) {
   if (error) throw error;
 }
 
+/**
+ * Delete a menu item: remove the `menu-images` Storage object referenced by `image_url`, then delete the `menu_items` row.
+ * Related `reviews` and `orders` rows are removed by the database (`ON DELETE CASCADE`).
+ */
 export async function deleteMenuItem(itemId) {
   const sb = getSupabase();
   if (!sb) throw new Error("SUPABASE_NOT_CONFIGURED");
+
+  const { data: row, error: selectError } = await sb.from("menu_items").select("id, image_url").eq("id", itemId).maybeSingle();
+  if (selectError) throw selectError;
+  if (!row) {
+    const err = new Error("Menu item was not deleted.");
+    err.code = "MENU_DELETE_NO_ROWS";
+    throw err;
+  }
+
+  await removeMenuImageFromStorageIfPresent(row.image_url);
+
   const { data, error } = await sb.from("menu_items").delete().eq("id", itemId).select("id");
   if (error) throw error;
   if (!data?.length) {

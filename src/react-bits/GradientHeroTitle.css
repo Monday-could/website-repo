@@ -1,0 +1,34 @@
+.rb-gradient-hero-title {
+  display: inline;
+  background-image: linear-gradient(
+    105deg,
+    #ffffff 0%,
+    #fff4bf 22%,
+    #ffc629 42%,
+    #ffffff 58%,
+    #ffe08a 78%,
+    #ffffff 100%
+  );
+  background-size: 220% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: rb-hero-gradient-shift 14s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-gradient-hero-title {
+    animation: none;
+    background-position: 40% 50%;
+  }
+}
+
+@keyframes rb-hero-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}

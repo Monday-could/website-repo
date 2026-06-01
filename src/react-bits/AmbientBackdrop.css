@@ -1,0 +1,49 @@
+.rb-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.rb-ambient__blob {
+  position: absolute;
+  width: min(72vw, 520px);
+  height: min(72vw, 520px);
+  border-radius: 50%;
+  filter: blur(68px);
+  opacity: 0.14;
+  will-change: transform;
+  animation: rb-ambient-drift 42s ease-in-out infinite;
+}
+
+.rb-ambient__blob--a {
+  left: -12%;
+  top: 8%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 198, 41, 0.55), rgba(215, 25, 32, 0.15) 70%, transparent 100%);
+  animation-delay: -6s;
+}
+
+.rb-ambient__blob--b {
+  right: -10%;
+  bottom: 0%;
+  background: radial-gradient(circle at 60% 40%, rgba(255, 255, 255, 0.5), rgba(17, 17, 17, 0.08) 72%, transparent 100%);
+  animation-delay: -18s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-ambient__blob {
+    animation: none;
+    opacity: 0.08;
+  }
+}
+
+@keyframes rb-ambient-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -3%, 0) scale(1.05);
+  }
+}

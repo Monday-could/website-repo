@@ -56,3 +56,40 @@ export async function resolveMenuImageForPersist(image, dishId) {
   const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
+
+/**
+ * Parse a Supabase Storage public URL into an object path inside the `menu-images` bucket; return null if unrecognized.
+ * @param {string | null | undefined} imageUrl
+ * @returns {string | null}
+ */
+export function menuImageStoragePathFromUrl(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== "string") return null;
+  const trimmed = imageUrl.trim();
+  if (!trimmed.startsWith("http")) return null;
+  const marker = `/object/public/${BUCKET}/`;
+  const idx = trimmed.indexOf(marker);
+  if (idx === -1) return null;
+  let rest = trimmed.slice(idx + marker.length);
+  const q = rest.indexOf("?");
+  if (q !== -1) rest = rest.slice(0, q);
+  try {
+    return decodeURIComponent(rest);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * If `imageUrl` points at this project's `menu-images` bucket, delete that object; skip local `/assets/...` and other URLs.
+ * @param {string | null | undefined} imageUrl
+ */
+export async function removeMenuImageFromStorageIfPresent(imageUrl) {
+  const path = menuImageStoragePathFromUrl(imageUrl);
+  if (!path) return;
+
+  const sb = getSupabase();
+  if (!sb) throw new Error("SUPABASE_NOT_CONFIGURED");
+
+  const { error } = await sb.storage.from(BUCKET).remove([path]);
+  if (error) throw error;
+}

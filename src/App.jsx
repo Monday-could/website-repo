@@ -53,6 +53,12 @@ import {
   runHomePopularMotion,
   runMainRouteEnter,
 } from "./lib/uiMotion.js";
+import AmbientBackdrop from "./react-bits/AmbientBackdrop.jsx";
+import ClickSpark from "./react-bits/ClickSpark.jsx";
+import GradientHeroTitle from "./react-bits/GradientHeroTitle.jsx";
+import Magnet from "./react-bits/Magnet.jsx";
+import { ReactBitsProvider, useReactBits } from "./react-bits/ReactBitsProvider.jsx";
+import SpotlightCard from "./react-bits/SpotlightCard.jsx";
 
 const STORAGE_KEY = "diner-desk-state-v2";
 /** Internal path only (e.g. `/menu`); used after login/register to avoid open redirects. */
@@ -766,8 +772,8 @@ function App() {
   const skipMainRouteMotionOnce = useRef(true);
   const stateRef = useRef(initialState);
   const [mode, setMode] = useState("customer");
-  /** Remote data loads in the background; seed data stays visible if Supabase is slow. */
-  const [dataReady, setDataReady] = useState(true);
+  /** When Supabase is configured: false until the first menu fetch finishes (full-screen loading). When not configured: always true. */
+  const [dataReady, setDataReady] = useState(() => !isSupabaseConfigured());
   const [authSession, setAuthSession] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [state, setState] = useState(initialState);
@@ -817,6 +823,7 @@ function App() {
   // loop until withTimeout fires (felt as "Supabase is slow").
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
+    setDataReady(false);
     const abortController = new AbortController();
     const { signal } = abortController;
     let cancelled = false;
@@ -915,6 +922,7 @@ function App() {
     if (authSession?.role === "staff" || authSession?.role === "owner") {
       await logout();
       setAuthSession(null);
+      setMode("customer");
     }
   }, [authSession]);
 
@@ -1230,7 +1238,9 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <ReactBitsProvider reducedMotion={reducedMotion}>
+      <div className="app-shell">
+        <ReactBitsAmbientMount />
       {import.meta.env.DEV && !isSupabaseConfigured() ? (
         <div className="supabase-config-banner" role="status">
           <p>{t("app.supabaseBanner")}</p>
@@ -1586,7 +1596,8 @@ function App() {
         </div>
       )}
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
-    </div>
+      </div>
+    </ReactBitsProvider>
   );
 }
 
@@ -1822,8 +1833,14 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
   );
 }
 
+function ReactBitsAmbientMount() {
+  const rb = useReactBits();
+  return rb.ambient ? <AmbientBackdrop /> : null;
+}
+
 function HomePage({ menu, orders, onOrder }) {
   const { t } = useI18n();
+  const rb = useReactBits();
   const heroRef = useRef(null);
   const popularRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
@@ -1850,12 +1867,24 @@ function HomePage({ menu, orders, onOrder }) {
       <section ref={heroRef} className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
           <p className="eyebrow">{t("home.heroEyebrow")}</p>
-          <h1 id="hero-title">{t("home.heroTitle")}</h1>
+          <h1 id="hero-title">
+            {rb.heroGradient ? <GradientHeroTitle>{t("home.heroTitle")}</GradientHeroTitle> : t("home.heroTitle")}
+          </h1>
           <p>{t("home.heroBody")}</p>
           <div className="hero-actions">
-            <Link className="primary-cta" to="/menu">
-              {t("home.startOrder")}
-            </Link>
+            {rb.enabled ? (
+              <ClickSpark disabled={!rb.clickSpark} sparkColor="rgba(255, 255, 255, 0.85)" sparkCount={6} duration={300}>
+                <Magnet disabled={!rb.magnet} magnetStrength={7} padding={48}>
+                  <Link className="primary-cta" to="/menu">
+                    {t("home.startOrder")}
+                  </Link>
+                </Magnet>
+              </ClickSpark>
+            ) : (
+              <Link className="primary-cta" to="/menu">
+                {t("home.startOrder")}
+              </Link>
+            )}
             <Link className="secondary-cta" to="/location">
               {t("home.findLocation")}
             </Link>
@@ -1902,8 +1931,11 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
   }, [filteredMenuKey, reducedMotion, filteredMenu.length]);
 
   useEffect(() => {
-    setOpenReviewItemId(null);
-  }, [filterCategory, filterBadge]);
+    setOpenReviewItemId((prev) => {
+      if (prev === null) return null;
+      return filteredMenu.some((item) => item.id === prev) ? prev : null;
+    });
+  }, [filteredMenu]);
 
   function handleReviewPanelToggle(itemId) {
     setOpenReviewItemId((prev) => {
@@ -1966,6 +1998,7 @@ function MenuCard({
   onReviewPanelToggle,
 }) {
   const { t } = useI18n();
+  const rb = useReactBits();
   const location = useLocation();
   const [fallbackReviewOpen, setFallbackReviewOpen] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
@@ -2033,7 +2066,12 @@ function MenuCard({
   }
 
   return (
-    <article className="food-card">
+    <SpotlightCard
+      as="article"
+      className="food-card"
+      active={rb.foodSpotlight}
+      spotlightColor="rgba(255, 198, 41, 0.14)"
+    >
       <div className="food-image-wrap">
         <img src={item.image} alt={`${item.name} dish`} />
         {badges.length ? (
@@ -2160,7 +2198,7 @@ function MenuCard({
         </section>
       </div>
       <DishReviewsModal open={reviewsModalOpen} onClose={() => setReviewsModalOpen(false)} item={item} />
-    </article>
+    </SpotlightCard>
   );
 }
 

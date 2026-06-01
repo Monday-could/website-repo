@@ -1,0 +1,37 @@
+/* Spotlight interaction based on React Bits SpotlightCard (MIT) */
+
+.rb-spotlight {
+  position: relative;
+  overflow: hidden;
+  --rb-mouse-x: 50%;
+  --rb-mouse-y: 50%;
+  --rb-spotlight-color: rgba(255, 255, 255, 0.08);
+}
+
+.rb-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    circle 220px at var(--rb-mouse-x) var(--rb-mouse-y),
+    var(--rb-spotlight-color),
+    transparent 72%
+  );
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rb-spotlight:hover::before,
+  .rb-spotlight:focus-within::before {
+    opacity: 0.5;
+  }
+}
+
+/* When stacked with .food-card: keep card content above the glow layer */
+.rb-spotlight.food-card > * {
+  position: relative;
+  z-index: 1;
+}

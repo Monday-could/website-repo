@@ -61,7 +61,8 @@ export function runFoodCardStagger(scope, { reducedMotion = false } = {}) {
       opacity: 0,
       y: 24,
       duration: 0.48,
-      stagger: { each: 0.05, from: "start" },
+      /** No stagger on Y: keeps paired column cards on the same horizontal baseline during and after the intro */
+      stagger: 0,
       ease: "power2.out",
     });
   }, scope);

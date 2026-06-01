@@ -596,6 +596,16 @@ h3 {
 
 .menu-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+/* Two-column grid: when the dish count is odd, center the lone last card instead of leaving it only in the left column */
+@media (min-width: 921px) {
+  .menu-grid .food-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(100%, calc((100% - 24px) / 2));
+  }
 }
 
 .menu-filters-bar {
