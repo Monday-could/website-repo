@@ -21,7 +21,7 @@ import {
   registerCustomer,
   subscribeAuth,
 } from "./services/authService.js";
-import { isSupabaseConfigured } from "./lib/supabaseClient.js";
+import { getSupabase, isSupabaseConfigured } from "./lib/supabaseClient.js";
 import { withTimeout } from "./lib/withTimeout.js";
 import {
   MAX_ORDER_QUANTITY,
@@ -112,6 +112,7 @@ const TOAST_TTL_MS = 4200;
 /** Safety net if menu REST never settles. Kept separate from orders so authSession changes cannot abort menu mid-flight. */
 const MENU_LOAD_TIMEOUT_MS = 8_000;
 const ORDERS_LOAD_TIMEOUT_MS = 8_000;
+const STAFF_ORDER_SYNC_INTERVAL_MS = 4_000;
 
 function isAbortLikeError(e) {
   if (!e || e.code === "TIMEOUT") return false;
@@ -857,39 +858,76 @@ function App() {
     };
   }, [t, enqueueToast]);
 
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-    const abortController = new AbortController();
-    const { signal } = abortController;
-    let cancelled = false;
-    (async () => {
+  const refreshOrders = useCallback(
+    async ({ signal, showErrors = false } = {}) => {
+      if (!isSupabaseConfigured()) return false;
+      if (!authSession) {
+        setState((prev) => ({ ...prev, orders: [] }));
+        return true;
+      }
+
       try {
         const orders = await withTimeout(
           fetchOrdersForSession(authSession, signal),
           ORDERS_LOAD_TIMEOUT_MS,
           "orders",
         );
-        if (!cancelled) {
-          setState((prev) => ({
-            ...prev,
-            orders: orders.map(migrateOrderRow),
-          }));
-        }
+        setState((prev) => ({
+          ...prev,
+          orders: orders.map(migrateOrderRow),
+        }));
+        return true;
       } catch (e) {
-        if (isAbortLikeError(e)) return;
+        if (isAbortLikeError(e)) return false;
         console.error(e);
-        if (e?.code === "TIMEOUT") {
-          enqueueToast(t("toast.dataLoadTimeout"));
-        } else {
-          enqueueToast(t("toast.dataLoadError"));
+        if (showErrors) {
+          enqueueToast(e?.code === "TIMEOUT" ? t("toast.dataLoadTimeout") : t("toast.dataLoadError"));
         }
+        return false;
       }
-    })();
+    },
+    [authSession, t, enqueueToast],
+  );
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const abortController = new AbortController();
+    refreshOrders({ signal: abortController.signal, showErrors: true });
+    return () => abortController.abort();
+  }, [refreshOrders]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    if (authSession?.role !== "staff" && authSession?.role !== "owner") return;
+
+    const sb = getSupabase();
+    const channel = sb
+      ?.channel(`orders-sync-${authSession.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        refreshOrders({ showErrors: false });
+      })
+      .subscribe();
+
+    const intervalId = window.setInterval(() => {
+      refreshOrders({ showErrors: false });
+    }, STAFF_ORDER_SYNC_INTERVAL_MS);
+
+    function refreshVisibleOrders() {
+      if (document.visibilityState === "visible") {
+        refreshOrders({ showErrors: false });
+      }
+    }
+
+    window.addEventListener("focus", refreshVisibleOrders);
+    document.addEventListener("visibilitychange", refreshVisibleOrders);
+
     return () => {
-      cancelled = true;
-      abortController.abort();
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshVisibleOrders);
+      document.removeEventListener("visibilitychange", refreshVisibleOrders);
+      if (channel) sb.removeChannel(channel);
     };
-  }, [authSession?.id, authSession?.role, t, enqueueToast]);
+  }, [authSession?.id, authSession?.role, refreshOrders]);
 
   const modes = useMemo(
     () => [

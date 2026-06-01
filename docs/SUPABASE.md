@@ -33,7 +33,7 @@ supabase db push
 
 Alternatively, paste the migration file contents into the Dashboard **SQL Editor** (respect order; run once).
 
-Migrations create: `profiles`, `menu_items`, `reviews`, `orders`, and the Storage bucket **`menu-images`** (public read; writes restricted to the `owner` role). A follow-up migration grants **`anon` / `authenticated`** table privileges required by PostgREST (RLS is not enough on its own). Later migrations adjust orders visibility, add **`ON DELETE CASCADE`** from `orders.item_id` to `menu_items`, and add security hardening for review spam plus order quantity/rate limits (see `20260531170000_security_hardening.sql`).
+Migrations create: `profiles`, `menu_items`, `reviews`, `orders`, and the Storage bucket **`menu-images`** (public read; writes restricted to the `owner` role). A follow-up migration grants **`anon` / `authenticated`** table privileges required by PostgREST (RLS is not enough on its own). Later migrations adjust orders visibility, add **`ON DELETE CASCADE`** from `orders.item_id` to `menu_items`, add security hardening for review spam plus order quantity/rate limits, and add `orders` to the Supabase Realtime publication for the staff / owner ticket board.
 
 ## Permissions (GRANT)
 
@@ -71,6 +71,8 @@ On the login screen you can enter **`worker` / `boss`** (the app appends `@` + `
 If you previously applied `20250601140000_orders_select_live_board.sql` and want the database to match the SPA again, apply `20250601150000_revoke_orders_anon_select.sql` (drops that policy and revokes `anon` SELECT on `orders`).
 
 Security hardening in `20260531170000_security_hardening.sql` adds database-side checks that the browser cannot bypass: order line quantity must stay between 1 and 50, a single `placed_by_id` cannot submit more than 50 items in 30 seconds, each signed-in user gets one review per dish, review text is capped to 3-500 characters, and review inserts are rate-limited.
+
+`20260601120000_orders_realtime_publication.sql` enables Realtime notifications for `public.orders`. The app also polls as a fallback, so staff / owner screens still update even if Realtime is not available.
 
 ## MCP / Cursor
 
