@@ -1415,6 +1415,9 @@ function App() {
             <MobileLink to="/location" onDone={() => setDrawerOpen(false)}>
               {t("drawer.location")}
             </MobileLink>
+            <MobileLink to="/profile" onDone={() => setDrawerOpen(false)}>
+              {t("drawer.profile")}
+            </MobileLink>
             {!authSession ? (
               <>
                 <MobileLink to="/login" onDone={() => setDrawerOpen(false)}>

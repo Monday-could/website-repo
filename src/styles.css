@@ -2819,11 +2819,12 @@ a.drawer-link.active {
   }
 
   .desktop-nav,
-  .icon-button,
   .order-button,
   .mode-menu-wrap {
     display: none;
   }
+
+  /* Keep header profile (`.icon-button`) and modal/drawer close buttons visible — do not hide all `.icon-button` here */
 
   .mobile-menu {
     display: inline-grid;

@@ -46,6 +46,7 @@ const STR = {
   "drawer.mobileNavAria": { en: "Mobile navigation", zh: "移动导航", es: "Navegación móvil" },
   "drawer.menu": { en: "Menu", zh: "菜单", es: "Menú" },
   "drawer.location": { en: "Location", zh: "位置", es: "Ubicación" },
+  "drawer.profile": { en: "Profile & orders", zh: "个人资料与订单", es: "Perfil y pedidos" },
   "drawer.logout": { en: "Log out", zh: "退出登录", es: "Cerrar sesión" },
 
   "footer.tagline": {
