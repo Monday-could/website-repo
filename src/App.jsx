@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Link,
@@ -45,6 +45,14 @@ import {
 } from "./services/ordersRepository.js";
 import { useI18n } from "./i18n/I18nContext.jsx";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher.jsx";
+import { usePrefersReducedMotion } from "./lib/usePrefersReducedMotion.js";
+import {
+  runCartLayoutMotion,
+  runFoodCardStagger,
+  runHomeHeroMotion,
+  runHomePopularMotion,
+  runMainRouteEnter,
+} from "./lib/uiMotion.js";
 
 const STORAGE_KEY = "diner-desk-state-v2";
 /** Internal path only (e.g. `/menu`); used after login/register to avoid open redirects. */
@@ -753,6 +761,9 @@ function App() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
+  const mainRef = useRef(null);
+  const reducedMotion = usePrefersReducedMotion();
+  const skipMainRouteMotionOnce = useRef(true);
   const stateRef = useRef(initialState);
   const [mode, setMode] = useState("customer");
   /** Remote data loads in the background; seed data stays visible if Supabase is slow. */
@@ -914,6 +925,18 @@ function App() {
       /* ignore */
     }
   }, [state.cart]);
+
+  useLayoutEffect(() => {
+    if (reducedMotion) return;
+    if (skipMainRouteMotionOnce.current) {
+      skipMainRouteMotionOnce.current = false;
+      return;
+    }
+    const el = mainRef.current;
+    if (!el) return;
+    const ctx = runMainRouteEnter(el, { reducedMotion });
+    return () => ctx?.revert();
+  }, [location.pathname, reducedMotion]);
 
   useEffect(() => {
     const path = location.pathname;
@@ -1423,7 +1446,7 @@ function App() {
         </div>
       )}
 
-      <main id="main-content" tabIndex={-1}>
+      <main id="main-content" ref={mainRef} tabIndex={-1}>
         <Routes>
           <Route
             path="/"
@@ -1610,11 +1633,25 @@ function OrderSuccessPage() {
 function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const cartLayoutRef = useRef(null);
+  const reducedMotion = usePrefersReducedMotion();
   const subtotal = useMemo(
     () => cart.reduce((sum, line) => sum + Number(line.price) * Number(line.quantity || 1), 0),
     [cart],
   );
   const totalItems = useMemo(() => getCartQuantity(cart), [cart]);
+  const cartLayoutAnimated = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!cart.length) {
+      cartLayoutAnimated.current = false;
+      return;
+    }
+    if (reducedMotion || cartLayoutAnimated.current) return;
+    cartLayoutAnimated.current = true;
+    const ctx = runCartLayoutMotion(cartLayoutRef.current, { reducedMotion });
+    return () => ctx?.revert();
+  }, [cart.length, reducedMotion]);
 
   async function handleCheckout() {
     if (!cart.length) return;
@@ -1642,7 +1679,7 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
           </Link>
         </div>
       ) : (
-        <div className="cart-layout">
+        <div className="cart-layout" ref={cartLayoutRef}>
           <div className="cart-lines-panel">
             <h2 className="cart-panel-heading">{t("cart.itemsHead")}</h2>
             <ul className="cart-line-list">
@@ -1787,15 +1824,30 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
 
 function HomePage({ menu, orders, onOrder }) {
   const { t } = useI18n();
+  const heroRef = useRef(null);
+  const popularRef = useRef(null);
+  const reducedMotion = usePrefersReducedMotion();
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
   const popularItems = useMemo(
     () => sortVisibleMenuBySalesThenPopularity(visibleMenu, orders).slice(0, POPULAR_SALES_TOP_N),
     [visibleMenu, orders],
   );
 
+  useLayoutEffect(() => {
+    if (reducedMotion) return;
+    const ctx = runHomeHeroMotion(heroRef.current, { reducedMotion });
+    return () => ctx?.revert();
+  }, [reducedMotion]);
+
+  useLayoutEffect(() => {
+    if (reducedMotion) return;
+    const ctx = runHomePopularMotion(popularRef.current, { reducedMotion });
+    return () => ctx?.revert();
+  }, [reducedMotion, popularItems.length]);
+
   return (
     <div className="home-reveal">
-      <section className="hero" aria-labelledby="hero-title">
+      <section ref={heroRef} className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
           <p className="eyebrow">{t("home.heroEyebrow")}</p>
           <h1 id="hero-title">{t("home.heroTitle")}</h1>
@@ -1815,7 +1867,7 @@ function HomePage({ menu, orders, onOrder }) {
         </div>
       </section>
 
-      <section className="content-section home-reveal-content" aria-labelledby="popular-title">
+      <section ref={popularRef} className="content-section home-reveal-content" aria-labelledby="popular-title">
         <div className="section-heading">
           <p className="eyebrow">{t("home.popularEyebrow")}</p>
           <h2 id="popular-title">{t("home.popularTitle")}</h2>
@@ -1829,6 +1881,8 @@ function HomePage({ menu, orders, onOrder }) {
 
 function MenuPage({ menu, orders, session, onOrder, onReview }) {
   const { t } = useI18n();
+  const menuGridRef = useRef(null);
+  const reducedMotion = usePrefersReducedMotion();
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all");
   const [openReviewItemId, setOpenReviewItemId] = useState(null);
@@ -1839,6 +1893,13 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
     () => filterMenuByCategoryAndBadge(visibleMenu, filterCategory, filterBadge, badgeCtx),
     [visibleMenu, filterCategory, filterBadge, badgeCtx],
   );
+  const filteredMenuKey = useMemo(() => filteredMenu.map((item) => item.id).join(","), [filteredMenu]);
+
+  useLayoutEffect(() => {
+    if (reducedMotion || !filteredMenu.length) return;
+    const ctx = runFoodCardStagger(menuGridRef.current, { reducedMotion });
+    return () => ctx?.revert();
+  }, [filteredMenuKey, reducedMotion, filteredMenu.length]);
 
   useEffect(() => {
     setOpenReviewItemId(null);
@@ -1869,7 +1930,7 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
       />
 
       {filteredMenu.length ? (
-        <div className="menu-grid">
+        <div className="menu-grid" ref={menuGridRef}>
           {filteredMenu.map((item) => (
             <MenuCard
               key={item.id}
