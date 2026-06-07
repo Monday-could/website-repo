@@ -1817,6 +1817,15 @@ textarea {
   text-align: center;
 }
 
+.auth-page .auth-demo-hint {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  color: var(--black);
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px dashed rgba(220, 38, 38, 0.35);
+}
+
 .auth-form {
   max-width: 420px;
   display: flex;

@@ -512,6 +512,21 @@ const STR = {
     zh: "不是公司员工，进入顾客模式或者游客模式。",
     es: "Si no eres del personal, entra en modo cliente o modo invitado.",
   },
+  "auth.login.demoHintGuest": {
+    en: "Demo account — username: test, password: imtest",
+    zh: "测试账号：用户名 test，密码 imtest",
+    es: "Cuenta de prueba: usuario test, contraseña imtest",
+  },
+  "auth.login.demoHintStaff": {
+    en: "Demo account — username: worker, password: imworker",
+    zh: "测试账号：用户名 worker，密码 imworker",
+    es: "Cuenta de prueba: usuario worker, contraseña imworker",
+  },
+  "auth.login.demoHintOwner": {
+    en: "Demo account — username: boss, password: imboss",
+    zh: "测试账号：用户名 boss，密码 imboss",
+    es: "Cuenta de prueba: usuario boss, contraseña imboss",
+  },
 
   "auth.register.title": { en: "Customer registration", zh: "顾客注册", es: "Registro de cliente" },
   "auth.register.eyebrow": { en: "Account", zh: "账号", es: "Cuenta" },

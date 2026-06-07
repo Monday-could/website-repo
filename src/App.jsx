@@ -595,6 +595,12 @@ function LoginPage({ onLoginSuccess }) {
   const profileNotice = searchParams.get("notice") === "profile";
   const roleParam = searchParams.get("role");
   const isStaffOrOwnerLogin = roleParam === "staff" || roleParam === "owner";
+  const demoHintKey =
+    roleParam === "staff"
+      ? "auth.login.demoHintStaff"
+      : roleParam === "owner"
+        ? "auth.login.demoHintOwner"
+        : "auth.login.demoHintGuest";
   const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -630,6 +636,9 @@ function LoginPage({ onLoginSuccess }) {
             {t("auth.login.noticeProfile")}
           </p>
         ) : null}
+        <p className="auth-hint auth-demo-hint" role="status">
+          {t(demoHintKey)}
+        </p>
       </div>
       <form className="auth-form" onSubmit={handleSubmit}>
         {error ? (
